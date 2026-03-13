@@ -41,11 +41,13 @@ src/
     │   ├── CheckboxField.tsx
     │   └── AuthButton.tsx
     ├── home/
-    │   ├── AppSidebar.tsx   # Sidebar — reads from config/navigation.ts
+    │   ├── AppSidebar.tsx   # Sidebar — reads config/navigation.ts + useSciNotes hook
     │   ├── NavLink.tsx      # Single nav link (active state)
     │   ├── QueryBox.tsx     # AI text input card
     │   ├── NoteCard.tsx     # Single note card
     │   └── RecentNotes.tsx  # Recent notes section (list of NoteCard)
+    ├── personal/
+    │   └── NewExperimentPage.tsx  # Placeholder — new SciNote creation
     ├── HomePage.tsx         # Composes AppLayout + QueryBox + RecentNotes
     ├── RequestAccessPage.tsx
     └── not-found.tsx
@@ -56,8 +58,18 @@ src/
 - `api/` modules are pure async functions; they throw `ApiError` on non-2xx
 - Hooks own form/business state and call `api/` functions
 - `config/navigation.ts` is pure data — no JSX; sidebar reads it at render time
-- New nav items: add to `NAV_GROUPS` in `config/navigation.ts` only
+- `data/` holds placeholder data that mirrors future API responses
+- New static nav items: add to `NAV_GROUPS` in `config/navigation.ts`
+- New dynamic personal SciNotes: managed by `hooks/useSciNotes.ts` (replace with API when ready)
+- Sidebar "个人" group items come from `useSciNotes`, not from static config
+- `NavGroup.action` — optional `{ label, href }` renders a "+" button next to the group title
 - New API endpoints: add a function in the matching `api/` file
+
+**Routes:**
+- `/home` — main home page
+- `/signup` — access by invitation (no public registration)
+- `/personal/new-experiment` — placeholder for new SciNote creation
+- `/personal/note/:id` — individual SciNote (not yet routed, navigation hrefs exist)
 
 ### `artifacts/api-server` (`@workspace/api-server`)
 

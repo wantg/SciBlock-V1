@@ -6,6 +6,8 @@ import NotFound from "@/pages/not-found";
 import { LoginPage } from "@/pages/login/LoginPage";
 import { HomePage } from "@/pages/HomePage";
 import { RequestAccessPage } from "@/pages/RequestAccessPage";
+import { NewExperimentPage } from "@/pages/personal/NewExperimentPage";
+import { SciNoteDetailPage } from "@/pages/personal/SciNoteDetailPage";
 
 const queryClient = new QueryClient();
 
@@ -15,6 +17,8 @@ function Router() {
       <Route path="/login" component={LoginPage} />
       <Route path="/home" component={HomePage} />
       <Route path="/signup" component={RequestAccessPage} />
+      <Route path="/personal/new-experiment" component={NewExperimentPage} />
+      <Route path="/personal/note/:id" component={SciNoteDetailPage} />
       <Route path="/">
         {() => {
           window.location.replace(
