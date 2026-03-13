@@ -3,8 +3,11 @@ import { useLocation, Link } from "wouter";
 import { LayoutGrid, Plus, BookOpen } from "lucide-react";
 import { TOP_NAV, NAV_GROUPS } from "@/config/navigation";
 import { useSciNotes } from "@/hooks/useSciNotes";
+import { useNewExperimentDraft } from "@/contexts/NewExperimentDraftContext";
 import { NavLink } from "./NavLink";
 import type { NavItem, NavGroup } from "@/config/navigation";
+
+const DRAFT_FALLBACK = "未命名实验";
 
 function GroupHeader({ group }: { group: NavGroup }) {
   return (
@@ -28,13 +31,27 @@ function GroupHeader({ group }: { group: NavGroup }) {
 export function AppSidebar() {
   const [location] = useLocation();
   const { notes } = useSciNotes();
+  const { draftName } = useNewExperimentDraft();
+
+  // The in-progress experiment initialization, shown at the top of 个人 when active.
+  const draftItem: NavItem | null =
+    draftName !== null
+      ? {
+          label: draftName.trim() || DRAFT_FALLBACK,
+          href: "/personal/new-experiment",
+          Icon: BookOpen,
+        }
+      : null;
 
   // Build the personal group items from SciNotes at render time.
-  const sciNoteItems: NavItem[] = notes.map((n) => ({
-    label: n.title,
-    href: `/personal/note/${n.id}`,
-    Icon: BookOpen,
-  }));
+  const sciNoteItems: NavItem[] = [
+    ...(draftItem ? [draftItem] : []),
+    ...notes.map((n) => ({
+      label: n.title,
+      href: `/personal/note/${n.id}`,
+      Icon: BookOpen,
+    })),
+  ];
 
   // Merge static config with dynamic items for the "个人" group.
   const groups: NavGroup[] = NAV_GROUPS.map((g) =>

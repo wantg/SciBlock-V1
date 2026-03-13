@@ -10,6 +10,7 @@ import { Step5Measurement } from "./new-experiment/steps/Step5Measurement";
 import { Step6Data } from "./new-experiment/steps/Step6Data";
 import { useReferences } from "@/hooks/useReferences";
 import { useWizardForm } from "@/hooks/useWizardForm";
+import { useNewExperimentDraft } from "@/contexts/NewExperimentDraftContext";
 import { AI_MOCK_FILL } from "@/data/aiMockFill";
 
 const TOTAL_STEPS = 6;
@@ -30,6 +31,21 @@ export function NewExperimentPage() {
   // Upload path: start empty — user selects their own files.
   const refs = useReferences([]);
   const form = useWizardForm();
+
+  const { setDraftName } = useNewExperimentDraft();
+
+  // Publish experiment name to sidebar in real time.
+  // Empty string is fine — the sidebar renders "未命名实验" as a fallback.
+  useEffect(() => {
+    setDraftName(form.data.step2.experimentName);
+  }, [form.data.step2.experimentName]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Remove the sidebar draft entry when leaving the page.
+  useEffect(() => {
+    return () => {
+      setDraftName(null);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Guard so we only populate from AI once per session.
   const hasPopulated = useRef(false);
