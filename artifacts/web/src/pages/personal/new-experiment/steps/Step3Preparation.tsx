@@ -2,14 +2,16 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "../FormField";
+import { AiFillBanner } from "../AiFillBanner";
 import type { Step3Data } from "@/types/wizardForm";
 
 interface Props {
   data: Step3Data;
   onChange: (updates: Partial<Step3Data>) => void;
+  aiFilled?: boolean;
 }
 
-export function Step3Preparation({ data, onChange }: Props) {
+export function Step3Preparation({ data, onChange, aiFilled = false }: Props) {
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       <div>
@@ -17,10 +19,12 @@ export function Step3Preparation({ data, onChange }: Props) {
         <p className="mt-1 text-sm text-gray-500">列出实验所需的材料、环境及时间安排</p>
       </div>
 
+      {aiFilled && <AiFillBanner />}
+
       <div className="flex flex-col gap-5">
         <FormField label="所需材料与试剂">
           <Textarea
-            rows={5}
+            rows={6}
             className="resize-none"
             placeholder="列出实验所需的所有材料、试剂及其用量"
             value={data.materials}

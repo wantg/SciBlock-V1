@@ -1,14 +1,16 @@
 import React from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "../FormField";
+import { AiFillBanner } from "../AiFillBanner";
 import type { Step4Data } from "@/types/wizardForm";
 
 interface Props {
   data: Step4Data;
   onChange: (updates: Partial<Step4Data>) => void;
+  aiFilled?: boolean;
 }
 
-export function Step4Operation({ data, onChange }: Props) {
+export function Step4Operation({ data, onChange, aiFilled = false }: Props) {
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       <div>
@@ -16,10 +18,12 @@ export function Step4Operation({ data, onChange }: Props) {
         <p className="mt-1 text-sm text-gray-500">描述实验的具体操作步骤与注意事项</p>
       </div>
 
+      {aiFilled && <AiFillBanner />}
+
       <div className="flex flex-col gap-5">
         <FormField label="操作步骤">
           <Textarea
-            rows={6}
+            rows={7}
             className="resize-none"
             placeholder="按顺序描述实验的每一个操作步骤"
             value={data.operationSteps}

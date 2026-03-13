@@ -21,10 +21,15 @@ export interface UseWizardFormResult {
   ) => void;
   /** True when the minimum required fields are filled */
   canFinish: boolean;
+  /** True after AI mock data has been injected via populateFromAI */
+  isAiFilled: boolean;
+  /** Replace the entire form dataset with AI-generated content */
+  populateFromAI: (fill: WizardFormData) => void;
 }
 
 export function useWizardForm(): UseWizardFormResult {
   const [data, setData] = useState<WizardFormData>(INITIAL);
+  const [isAiFilled, setIsAiFilled] = useState(false);
 
   function patch<K extends keyof WizardFormData>(
     step: K,
@@ -36,8 +41,13 @@ export function useWizardForm(): UseWizardFormResult {
     }));
   }
 
+  function populateFromAI(fill: WizardFormData) {
+    setData(fill);
+    setIsAiFilled(true);
+  }
+
   // Minimum condition: experiment name is filled (step 2).
   const canFinish = data.step2.experimentName.trim().length > 0;
 
-  return { data, patch, canFinish };
+  return { data, patch, canFinish, isAiFilled, populateFromAI };
 }

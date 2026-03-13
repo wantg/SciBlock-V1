@@ -2,20 +2,24 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "../FormField";
+import { AiFillBanner } from "../AiFillBanner";
 import type { Step2Data } from "@/types/wizardForm";
 
 interface Props {
   data: Step2Data;
   onChange: (updates: Partial<Step2Data>) => void;
+  aiFilled?: boolean;
 }
 
-export function Step2System({ data, onChange }: Props) {
+export function Step2System({ data, onChange, aiFilled = false }: Props) {
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       <div>
         <h1 className="text-xl font-semibold text-gray-900">实验系统</h1>
         <p className="mt-1 text-sm text-gray-500">描述本次实验的基本信息</p>
       </div>
+
+      {aiFilled && <AiFillBanner />}
 
       <div className="flex flex-col gap-5">
         <FormField label="实验名称" required>

@@ -8,8 +8,10 @@ interface Props {
   onStepClick: (stepId: number) => void;
   canFinish: boolean;
   onFinish: () => void;
-  /** Steps that are visually marked as AI-ready (analysis complete). */
+  /** Steps marked as AI-ready (analysis complete, not yet visited). */
   unlockedStepIds?: ReadonlySet<number>;
+  /** Steps the user has navigated to after they were unlocked. */
+  reviewedStepIds?: ReadonlySet<number>;
 }
 
 interface StepItemProps {
@@ -17,6 +19,7 @@ interface StepItemProps {
   active: boolean;
   done: boolean;
   unlocked: boolean;
+  reviewed: boolean;
   onClick: () => void;
 }
 
@@ -24,11 +27,13 @@ function StepIndicator({
   active,
   done,
   unlocked,
+  reviewed,
   stepId,
 }: {
   active: boolean;
   done: boolean;
   unlocked: boolean;
+  reviewed: boolean;
   stepId: number;
 }) {
   if (active) {
@@ -40,14 +45,21 @@ function StepIndicator({
   }
   if (done) {
     return (
-      <span className="flex-shrink-0 w-5 h-5 rounded-full border border-green-500 text-xs flex items-center justify-center">
+      <span className="flex-shrink-0 w-5 h-5 rounded-full border border-green-500 flex items-center justify-center">
         <CheckCircle2 size={14} className="text-green-500" />
+      </span>
+    );
+  }
+  if (reviewed) {
+    return (
+      <span className="flex-shrink-0 w-5 h-5 rounded-full border border-blue-500 flex items-center justify-center">
+        <CheckCircle2 size={14} className="text-blue-500" />
       </span>
     );
   }
   if (unlocked) {
     return (
-      <span className="flex-shrink-0 w-5 h-5 rounded-full border border-sky-400 text-xs flex items-center justify-center">
+      <span className="flex-shrink-0 w-5 h-5 rounded-full border border-sky-400 flex items-center justify-center">
         <Sparkles size={10} className="text-sky-400" />
       </span>
     );
@@ -59,7 +71,7 @@ function StepIndicator({
   );
 }
 
-function StepItem({ step, active, done, unlocked, onClick }: StepItemProps) {
+function StepItem({ step, active, done, unlocked, reviewed, onClick }: StepItemProps) {
   return (
     <button
       onClick={onClick}
@@ -74,6 +86,7 @@ function StepItem({ step, active, done, unlocked, onClick }: StepItemProps) {
         active={active}
         done={done}
         unlocked={unlocked}
+        reviewed={reviewed}
         stepId={step.id}
       />
       <span className="text-sm leading-tight">{step.label}</span>
@@ -87,20 +100,27 @@ export function StepNav({
   canFinish,
   onFinish,
   unlockedStepIds,
+  reviewedStepIds,
 }: Props) {
   return (
     <div className="flex flex-col h-full">
       <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
-        {EXPERIMENT_STEPS.map((step) => (
-          <StepItem
-            key={step.id}
-            step={step}
-            active={activeStepId === step.id}
-            done={step.id < activeStepId}
-            unlocked={unlockedStepIds?.has(step.id) ?? false}
-            onClick={() => onStepClick(step.id)}
-          />
-        ))}
+        {EXPERIMENT_STEPS.map((step) => {
+          const isDone = step.id < activeStepId;
+          const isUnlocked = !isDone && (unlockedStepIds?.has(step.id) ?? false);
+          const isReviewed = !isDone && (reviewedStepIds?.has(step.id) ?? false);
+          return (
+            <StepItem
+              key={step.id}
+              step={step}
+              active={activeStepId === step.id}
+              done={isDone}
+              unlocked={isUnlocked && !isReviewed}
+              reviewed={isReviewed}
+              onClick={() => onStepClick(step.id)}
+            />
+          );
+        })}
       </nav>
 
       <div className="mt-6 pt-4 border-t border-gray-100">

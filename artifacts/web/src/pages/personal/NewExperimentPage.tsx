@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { StepNav } from "./new-experiment/StepNav";
 import { StepFooter } from "./new-experiment/StepFooter";
 import { Step1Choice } from "./new-experiment/steps/Step1Choice";
@@ -10,12 +10,13 @@ import { Step5Measurement } from "./new-experiment/steps/Step5Measurement";
 import { Step6Data } from "./new-experiment/steps/Step6Data";
 import { useReferences } from "@/hooks/useReferences";
 import { useWizardForm } from "@/hooks/useWizardForm";
+import { AI_MOCK_FILL } from "@/data/aiMockFill";
 
 const TOTAL_STEPS = 6;
 
 /**
- * Steps unlocked in the nav after AI analysis completes on the upload path.
- * Step 6 (实验数据) is excluded — it requires the experiment to be running.
+ * Steps unlocked in the nav after AI analysis completes.
+ * Step 6 (实验数据) is excluded — data is collected during the experiment, not pre-filled.
  */
 const UPLOAD_UNLOCKED_STEPS: ReadonlySet<number> = new Set([2, 3, 4, 5]);
 
@@ -24,14 +25,46 @@ type Step1Path = "choice" | "uploading";
 export function NewExperimentPage() {
   const [activeStepId, setActiveStepId] = useState(1);
   const [step1Path, setStep1Path] = useState<Step1Path>("choice");
+  const [reviewedStepIds, setReviewedStepIds] = useState<Set<number>>(new Set());
 
   // Upload path: start empty — user selects their own files.
   const refs = useReferences([]);
   const form = useWizardForm();
 
+  // Guard so we only populate from AI once per session.
+  const hasPopulated = useRef(false);
+  useEffect(() => {
+    if (refs.analysisComplete && !hasPopulated.current) {
+      hasPopulated.current = true;
+      form.populateFromAI(AI_MOCK_FILL);
+    }
+  }, [refs.analysisComplete]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * Which steps show the AI-ready indicator in the left nav.
+   * Only active for the upload path once analysis finishes.
+   */
+  const unlockedStepIds = useMemo<ReadonlySet<number> | undefined>(() => {
+    if (step1Path === "uploading" && refs.analysisComplete) {
+      return UPLOAD_UNLOCKED_STEPS;
+    }
+    return undefined;
+  }, [step1Path, refs.analysisComplete]);
+
   function goToStep(stepId: number) {
     if (stepId < 1 || stepId > TOTAL_STEPS) return;
     if (stepId === 1) setStep1Path("choice");
+
+    // Mark as reviewed when the user first visits an unlocked step.
+    if (unlockedStepIds?.has(stepId)) {
+      setReviewedStepIds((prev) => {
+        if (prev.has(stepId)) return prev;
+        const next = new Set(prev);
+        next.add(stepId);
+        return next;
+      });
+    }
+
     setActiveStepId(stepId);
   }
 
@@ -47,17 +80,6 @@ export function NewExperimentPage() {
     // TODO: submit to backend when ready
     console.log("Finish initialization", form.data);
   }
-
-  /**
-   * Which steps show the AI-ready (spark) indicator in the left nav.
-   * Only active for the upload path once analysis finishes.
-   */
-  const unlockedStepIds = useMemo<ReadonlySet<number> | undefined>(() => {
-    if (step1Path === "uploading" && refs.analysisComplete) {
-      return UPLOAD_UNLOCKED_STEPS;
-    }
-    return undefined;
-  }, [step1Path, refs.analysisComplete]);
 
   function renderStepContent() {
     switch (activeStepId) {
@@ -88,6 +110,7 @@ export function NewExperimentPage() {
           <Step2System
             data={form.data.step2}
             onChange={(u) => form.patch("step2", u)}
+            aiFilled={form.isAiFilled}
           />
         );
 
@@ -96,6 +119,7 @@ export function NewExperimentPage() {
           <Step3Preparation
             data={form.data.step3}
             onChange={(u) => form.patch("step3", u)}
+            aiFilled={form.isAiFilled}
           />
         );
 
@@ -104,6 +128,7 @@ export function NewExperimentPage() {
           <Step4Operation
             data={form.data.step4}
             onChange={(u) => form.patch("step4", u)}
+            aiFilled={form.isAiFilled}
           />
         );
 
@@ -112,6 +137,7 @@ export function NewExperimentPage() {
           <Step5Measurement
             data={form.data.step5}
             onChange={(u) => form.patch("step5", u)}
+            aiFilled={form.isAiFilled}
           />
         );
 
@@ -143,6 +169,7 @@ export function NewExperimentPage() {
           canFinish={form.canFinish}
           onFinish={handleFinish}
           unlockedStepIds={unlockedStepIds}
+          reviewedStepIds={reviewedStepIds}
         />
       </aside>
 

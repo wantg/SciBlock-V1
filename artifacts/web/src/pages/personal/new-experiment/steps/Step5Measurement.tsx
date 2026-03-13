@@ -2,20 +2,24 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "../FormField";
+import { AiFillBanner } from "../AiFillBanner";
 import type { Step5Data } from "@/types/wizardForm";
 
 interface Props {
   data: Step5Data;
   onChange: (updates: Partial<Step5Data>) => void;
+  aiFilled?: boolean;
 }
 
-export function Step5Measurement({ data, onChange }: Props) {
+export function Step5Measurement({ data, onChange, aiFilled = false }: Props) {
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       <div>
         <h1 className="text-xl font-semibold text-gray-900">测量过程</h1>
         <p className="mt-1 text-sm text-gray-500">定义需要测量的指标与使用的测量方法</p>
       </div>
+
+      {aiFilled && <AiFillBanner />}
 
       <div className="flex flex-col gap-5">
         <FormField label="测量指标">
