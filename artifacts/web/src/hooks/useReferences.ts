@@ -27,6 +27,8 @@ export interface UseReferencesResult {
   canAnalyze: boolean;
   /** True when at least one file is currently analyzing */
   isAnalyzing: boolean;
+  /** True when at least one file exists and all are done */
+  analysisComplete: boolean;
 }
 
 const ANALYZE_BASE_DELAY_MS = 1400;
@@ -39,6 +41,8 @@ export function useReferences(initial: ImportedFile[]): UseReferencesResult {
   const analyzingCount = files.filter((f) => f.status === "analyzing").length;
   const canAnalyze = pendingCount > 0 && analyzingCount === 0;
   const isAnalyzing = analyzingCount > 0;
+  const analysisComplete =
+    files.length > 0 && files.every((f) => f.status === "done");
 
   function addFiles(selected: FileList) {
     const now = new Date();
@@ -84,5 +88,5 @@ export function useReferences(initial: ImportedFile[]): UseReferencesResult {
     });
   }
 
-  return { files, addFiles, removeFile, analyze, canAnalyze, isAnalyzing };
+  return { files, addFiles, removeFile, analyze, canAnalyze, isAnalyzing, analysisComplete };
 }

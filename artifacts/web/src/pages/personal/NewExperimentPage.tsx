@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { StepNav } from "./new-experiment/StepNav";
 import { StepFooter } from "./new-experiment/StepFooter";
 import { Step1Choice } from "./new-experiment/steps/Step1Choice";
@@ -10,9 +10,14 @@ import { Step5Measurement } from "./new-experiment/steps/Step5Measurement";
 import { Step6Data } from "./new-experiment/steps/Step6Data";
 import { useReferences } from "@/hooks/useReferences";
 import { useWizardForm } from "@/hooks/useWizardForm";
-import { PLACEHOLDER_REFERENCES } from "@/data/experimentReferences";
 
 const TOTAL_STEPS = 6;
+
+/**
+ * Steps unlocked in the nav after AI analysis completes on the upload path.
+ * Step 6 (实验数据) is excluded — it requires the experiment to be running.
+ */
+const UPLOAD_UNLOCKED_STEPS: ReadonlySet<number> = new Set([2, 3, 4, 5]);
 
 type Step1Path = "choice" | "uploading";
 
@@ -20,7 +25,8 @@ export function NewExperimentPage() {
   const [activeStepId, setActiveStepId] = useState(1);
   const [step1Path, setStep1Path] = useState<Step1Path>("choice");
 
-  const refs = useReferences(PLACEHOLDER_REFERENCES);
+  // Upload path: start empty — user selects their own files.
+  const refs = useReferences([]);
   const form = useWizardForm();
 
   function goToStep(stepId: number) {
@@ -38,9 +44,20 @@ export function NewExperimentPage() {
   }
 
   function handleFinish() {
-    // TODO: submit form data to backend when ready
+    // TODO: submit to backend when ready
     console.log("Finish initialization", form.data);
   }
+
+  /**
+   * Which steps show the AI-ready (spark) indicator in the left nav.
+   * Only active for the upload path once analysis finishes.
+   */
+  const unlockedStepIds = useMemo<ReadonlySet<number> | undefined>(() => {
+    if (step1Path === "uploading" && refs.analysisComplete) {
+      return UPLOAD_UNLOCKED_STEPS;
+    }
+    return undefined;
+  }, [step1Path, refs.analysisComplete]);
 
   function renderStepContent() {
     switch (activeStepId) {
@@ -61,6 +78,8 @@ export function NewExperimentPage() {
             onAnalyze={refs.analyze}
             canAnalyze={refs.canAnalyze}
             isAnalyzing={refs.isAnalyzing}
+            analysisComplete={refs.analysisComplete}
+            onProceed={() => goToStep(2)}
           />
         );
 
@@ -123,6 +142,7 @@ export function NewExperimentPage() {
           onStepClick={goToStep}
           canFinish={form.canFinish}
           onFinish={handleFinish}
+          unlockedStepIds={unlockedStepIds}
         />
       </aside>
 

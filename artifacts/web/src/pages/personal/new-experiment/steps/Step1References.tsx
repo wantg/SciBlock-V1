@@ -1,8 +1,17 @@
 import React, { useRef } from "react";
-import { UploadCloud, FileText, X, Loader2, CheckCircle2, Clock } from "lucide-react";
+import {
+  UploadCloud,
+  FileText,
+  X,
+  Loader2,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  Sparkles,
+} from "lucide-react";
 import type { ImportedFile, FileStatus } from "@/types/experiment";
 
-// ─── Status badge ────────────────────────────────────────────────────────────
+// ─── Status badge ─────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<
   FileStatus,
@@ -44,7 +53,7 @@ function StatusBadge({ status }: { status: FileStatus }) {
   );
 }
 
-// ─── Upload area ─────────────────────────────────────────────────────────────
+// ─── Upload area ──────────────────────────────────────────────────────────────
 
 interface UploadAreaProps {
   onFilesSelected: (files: FileList) => void;
@@ -60,7 +69,6 @@ function UploadArea({ onFilesSelected }: UploadAreaProps) {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
       onFilesSelected(e.target.files);
-      // Reset so the same file can be added again if removed.
       e.target.value = "";
     }
   }
@@ -136,6 +144,35 @@ function FileRow({ file, onRemove }: FileRowProps) {
   );
 }
 
+// ─── Analysis complete banner ─────────────────────────────────────────────────
+
+interface AnalysisCompleteBannerProps {
+  onProceed: () => void;
+}
+
+function AnalysisCompleteBanner({ onProceed }: AnalysisCompleteBannerProps) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+      <div className="flex items-center gap-2.5">
+        <Sparkles size={16} className="text-sky-500 flex-shrink-0" />
+        <div>
+          <p className="text-sm font-medium text-sky-800">参考内容分析完成</p>
+          <p className="text-xs text-sky-600 mt-0.5">
+            左侧步骤 2–5 已就绪，可继续填写实验信息
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={onProceed}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 text-white text-sm font-medium hover:bg-sky-700 transition-colors flex-shrink-0"
+      >
+        继续填写
+        <ArrowRight size={13} />
+      </button>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
@@ -145,6 +182,9 @@ interface Props {
   onAnalyze: () => void;
   canAnalyze: boolean;
   isAnalyzing: boolean;
+  analysisComplete: boolean;
+  /** Called when the user proceeds to the next step after analysis */
+  onProceed: () => void;
 }
 
 export function Step1References({
@@ -154,17 +194,23 @@ export function Step1References({
   onAnalyze,
   canAnalyze,
   isAnalyzing,
+  analysisComplete,
+  onProceed,
 }: Props) {
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       <div>
         <h1 className="text-xl font-semibold text-gray-900">
-          创建你的实验基础信息
+          sciNote 参考内容
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          上传实验相关参考资料，系统将帮助你自动提取关键信息
+          上传实验相关参考资料，系统将自动提取关键信息
         </p>
       </div>
+
+      {analysisComplete ? (
+        <AnalysisCompleteBanner onProceed={onProceed} />
+      ) : null}
 
       <UploadArea onFilesSelected={onAddFiles} />
 
@@ -185,19 +231,21 @@ export function Step1References({
         </div>
       )}
 
-      <button
-        onClick={onAnalyze}
-        disabled={!canAnalyze}
-        className={[
-          "self-start flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors",
-          canAnalyze
-            ? "bg-gray-900 text-white hover:bg-gray-800"
-            : "bg-gray-100 text-gray-400 cursor-not-allowed",
-        ].join(" ")}
-      >
-        {isAnalyzing && <Loader2 size={14} className="animate-spin" />}
-        开始分析
-      </button>
+      {!analysisComplete && (
+        <button
+          onClick={onAnalyze}
+          disabled={!canAnalyze}
+          className={[
+            "self-start flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors",
+            canAnalyze
+              ? "bg-gray-900 text-white hover:bg-gray-800"
+              : "bg-gray-100 text-gray-400 cursor-not-allowed",
+          ].join(" ")}
+        >
+          {isAnalyzing && <Loader2 size={14} className="animate-spin" />}
+          开始分析
+        </button>
+      )}
     </div>
   );
 }
