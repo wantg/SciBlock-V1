@@ -1,13 +1,12 @@
 import React from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { FormField } from "../FormField";
 import type { Step4Data } from "@/types/wizardForm";
 
 interface Props {
   data: Step4Data;
   onChange: (updates: Partial<Step4Data>) => void;
 }
-
-const textareaCls =
-  "w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition resize-none";
 
 export function Step4Operation({ data, onChange }: Props) {
   return (
@@ -18,31 +17,25 @@ export function Step4Operation({ data, onChange }: Props) {
       </div>
 
       <div className="flex flex-col gap-5">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            操作步骤
-          </label>
-          <textarea
+        <FormField label="操作步骤">
+          <Textarea
             rows={6}
-            className={textareaCls}
+            className="resize-none"
             placeholder="按顺序描述实验的每一个操作步骤"
             value={data.operationSteps}
             onChange={(e) => onChange({ operationSteps: e.target.value })}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            操作注意事项
-          </label>
-          <textarea
+        <FormField label="操作注意事项">
+          <Textarea
             rows={4}
-            className={textareaCls}
+            className="resize-none"
             placeholder="列出操作过程中需要特别注意的事项或安全规范"
             value={data.cautions}
             onChange={(e) => onChange({ cautions: e.target.value })}
           />
-        </div>
+        </FormField>
       </div>
     </div>
   );

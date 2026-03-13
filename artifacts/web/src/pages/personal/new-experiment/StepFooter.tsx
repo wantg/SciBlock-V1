@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function StepFooter({ stepId, totalSteps, onPrev, onNext }: Props) {
-  const isFirst = stepId <= 2; // step 1 has its own CTAs; this footer starts at step 2
+  const isFirst = stepId <= 1;
   const isLast = stepId >= totalSteps;
 
   return (

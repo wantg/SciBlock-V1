@@ -1,15 +1,13 @@
 import React from "react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { FormField } from "../FormField";
 import type { Step5Data } from "@/types/wizardForm";
 
 interface Props {
   data: Step5Data;
   onChange: (updates: Partial<Step5Data>) => void;
 }
-
-const inputCls =
-  "w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition";
-
-const textareaCls = inputCls + " resize-none";
 
 export function Step5Measurement({ data, onChange }: Props) {
   return (
@@ -20,44 +18,31 @@ export function Step5Measurement({ data, onChange }: Props) {
       </div>
 
       <div className="flex flex-col gap-5">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            测量指标
-          </label>
-          <input
-            type="text"
-            className={inputCls}
+        <FormField label="测量指标">
+          <Input
             placeholder="例如：电阻率、折射率、粒径分布…"
             value={data.metrics}
             onChange={(e) => onChange({ metrics: e.target.value })}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            测量方法
-          </label>
-          <textarea
+        <FormField label="测量方法">
+          <Textarea
             rows={4}
-            className={textareaCls}
+            className="resize-none"
             placeholder="描述采用的测量方法或标准"
             value={data.method}
             onChange={(e) => onChange({ method: e.target.value })}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            测量仪器与设备
-          </label>
-          <input
-            type="text"
-            className={inputCls}
+        <FormField label="测量仪器与设备">
+          <Input
             placeholder="例如：万用表、显微镜、色谱仪…"
             value={data.instruments}
             onChange={(e) => onChange({ instruments: e.target.value })}
           />
-        </div>
+        </FormField>
       </div>
     </div>
   );
