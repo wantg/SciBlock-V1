@@ -11,6 +11,7 @@ import { NewExperimentPage } from "@/pages/personal/NewExperimentPage";
 import { ReinitializeExperimentPage } from "@/pages/personal/ReinitializeExperimentPage";
 import { SciNoteDetailPage } from "@/pages/personal/SciNoteDetailPage";
 import { ExperimentDetailPage } from "@/pages/personal/ExperimentDetailPage";
+import { ExperimentWorkbenchPage } from "@/pages/personal/workbench/ExperimentWorkbenchPage";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,8 @@ function AuthenticatedRouter() {
         <Route path="/personal/new-experiment" component={NewExperimentPage} />
         {/* Reinitialize wizard for an existing SciNote */}
         <Route path="/personal/reinitialize/:id" component={ReinitializeExperimentPage} />
+        {/* Experiment workbench — three-panel recording page for a SciNote */}
+        <Route path="/personal/experiment/:id/workbench" component={ExperimentWorkbenchPage} />
         {/* Wizard-created SciNotes — detail page with full form data */}
         <Route path="/personal/experiment/:id" component={ExperimentDetailPage} />
         {/* Placeholder SciNotes — legacy stub */}

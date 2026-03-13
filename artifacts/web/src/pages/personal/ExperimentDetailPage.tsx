@@ -1,6 +1,6 @@
 import React from "react";
-import { useParams } from "wouter";
-import { BookOpen, Tag as TagIcon } from "lucide-react";
+import { useParams, Link } from "wouter";
+import { BookOpen, Tag as TagIcon, FlaskConical } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSciNoteStore } from "@/contexts/SciNoteStoreContext";
 import type { ExperimentField, ObjectItem } from "@/types/experimentFields";
@@ -139,16 +139,25 @@ export function ExperimentDetailPage() {
       <div className="max-w-3xl mx-auto flex flex-col gap-8">
 
         {/* Header */}
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold text-gray-900">
-            {getExperimentName(fd?.step2.fields ?? []) || note.title}
-          </h1>
-          {expType && <p className="text-sm text-gray-400">{expType}</p>}
-          {note.createdAt && (
-            <p className="text-xs text-gray-300">
-              创建于 {new Date(note.createdAt).toLocaleString("zh-CN")}
-            </p>
-          )}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-xl font-semibold text-gray-900">
+              {getExperimentName(fd?.step2.fields ?? []) || note.title}
+            </h1>
+            {expType && <p className="text-sm text-gray-400">{expType}</p>}
+            {note.createdAt && (
+              <p className="text-xs text-gray-300">
+                创建于 {new Date(note.createdAt).toLocaleString("zh-CN")}
+              </p>
+            )}
+          </div>
+          <Link
+            href={`/personal/experiment/${note.id}/workbench`}
+            className="flex items-center gap-1.5 text-sm font-medium text-white bg-gray-900 hover:bg-gray-700 transition-colors px-3 py-1.5 rounded-lg flex-shrink-0"
+          >
+            <FlaskConical size={14} />
+            进入实验记录
+          </Link>
         </div>
 
         {/* Steps 2–6 — unified field-based rendering */}
