@@ -14,3 +14,22 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Authenticate a user with email and password
+ * @summary Login
+ */
+
+export const LoginBody = zod.object({
+  email: zod.string().email(),
+  password: zod.string().min(1),
+});
+
+export const LoginResponse = zod.object({
+  success: zod.boolean(),
+  user: zod.object({
+    id: zod.string(),
+    email: zod.string(),
+    name: zod.string(),
+  }),
+});

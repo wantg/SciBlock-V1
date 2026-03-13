@@ -4,6 +4,21 @@
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
+## Artifacts
+
+### `artifacts/web` (`@workspace/web`)
+
+React + Vite frontend. Routes:
+- `/login` — SciBlock login page (LoginPage, AuthCard, InputField, CheckboxField, AuthButton)
+- `/home` — Home page (post-login)
+- `/` — redirects to `/login`
+
+### `artifacts/api-server` (`@workspace/api-server`)
+
+Express backend. Routes:
+- `POST /api/auth/login` — mock login (returns user or 401)
+- `GET /api/healthz` — health check
+
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces
