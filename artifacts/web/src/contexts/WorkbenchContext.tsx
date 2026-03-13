@@ -44,6 +44,7 @@ interface WorkbenchContextValue {
   // Record mutations
   switchRecord: (recordId: string) => void;
   createNewRecord: () => void;
+  deleteRecord: (recordId: string) => void;
   updateTitle: (title: string) => void;
   updateStatus: (status: ExperimentStatus) => void;
   updateExperimentCode: (code: string) => void;
@@ -166,6 +167,22 @@ export function WorkbenchProvider({ sciNoteId, children }: Props) {
       setFlowDraftInserted(false);
       setAiAssistOpen(false);
     }
+  }
+
+  function deleteRecord(recordId: string) {
+    // Safety: never delete the last remaining record
+    if (records.length <= 1) return;
+
+    const idx = records.findIndex((r) => r.id === recordId);
+    if (idx === -1) return;
+
+    // Switch to adjacent record before removal
+    const nextRecord = idx > 0 ? records[idx - 1] : records[idx + 1];
+    setCurrentRecordId(nextRecord.id);
+    setFlowDraftInserted(false);
+    setAiAssistOpen(false);
+
+    setRecords((prev) => prev.filter((r) => r.id !== recordId));
   }
 
   function createNewRecord() {
@@ -304,6 +321,7 @@ export function WorkbenchProvider({ sciNoteId, children }: Props) {
     setActiveModuleKey,
     switchRecord,
     createNewRecord,
+    deleteRecord,
     updateTitle,
     updateStatus,
     updateExperimentCode,
