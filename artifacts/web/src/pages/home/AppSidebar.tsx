@@ -5,6 +5,7 @@ import { TOP_NAV, NAV_GROUPS } from "@/config/navigation";
 import { useSciNoteStore } from "@/contexts/SciNoteStoreContext";
 import { useNewExperimentDraft } from "@/contexts/NewExperimentDraftContext";
 import { NavLink } from "./NavLink";
+import { SciNoteRow } from "./SciNoteRow";
 import type { NavItem, NavGroup } from "@/config/navigation";
 
 const DRAFT_FALLBACK = "未命名实验";
@@ -35,6 +36,29 @@ function GroupHeader({ group }: { group: NavGroup }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// More-menu action handlers (front-end stubs — no backend yet)
+// ---------------------------------------------------------------------------
+
+function handleRename(noteId: string) {
+  // TODO: open rename dialog or inline input
+  console.log("[SciNote] rename:", noteId);
+}
+
+function handleReinitialize(noteId: string) {
+  // TODO: navigate back to wizard or open re-init flow
+  console.log("[SciNote] reinitialize:", noteId);
+}
+
+function handleDelete(noteId: string) {
+  // TODO: show confirm dialog → call store.deleteSciNote(noteId)
+  console.log("[SciNote] delete:", noteId);
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar
+// ---------------------------------------------------------------------------
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { notes } = useSciNoteStore();
@@ -50,19 +74,9 @@ export function AppSidebar() {
         }
       : null;
 
-  // Build the personal group items: draft entry first, then all SciNotes.
-  const sciNoteItems: NavItem[] = [
-    ...(draftItem ? [draftItem] : []),
-    ...notes.map((n) => ({
-      label: n.title,
-      href: sciNoteHref(n.kind, n.id),
-      Icon: BookOpen,
-    })),
-  ];
-
   // Merge static config with dynamic items for the "个人" group.
   const groups: NavGroup[] = NAV_GROUPS.map((g) =>
-    g.title === "个人" ? { ...g, items: sciNoteItems } : g,
+    g.title === "个人" ? { ...g, items: draftItem ? [draftItem] : [] } : g,
   );
 
   return (
@@ -90,13 +104,39 @@ export function AppSidebar() {
           <div key={group.title}>
             <GroupHeader group={group} />
             <div className="flex flex-col gap-0.5">
-              {group.items.map((item) => (
+              {/* Draft entry (no more-menu) */}
+              {group.title === "个人" && draftItem && (
                 <NavLink
-                  key={item.href}
-                  item={item}
-                  active={location === item.href}
+                  key={draftItem.href}
+                  item={draftItem}
+                  active={location === draftItem.href}
                 />
-              ))}
+              )}
+
+              {/* Saved SciNotes (with more-menu) */}
+              {group.title === "个人" &&
+                notes.map((note) => (
+                  <SciNoteRow
+                    key={note.id}
+                    noteId={note.id}
+                    title={note.title}
+                    href={sciNoteHref(note.kind, note.id)}
+                    active={location === sciNoteHref(note.kind, note.id)}
+                    onRename={handleRename}
+                    onReinitialize={handleReinitialize}
+                    onDelete={handleDelete}
+                  />
+                ))}
+
+              {/* Other group items (团队, etc.) */}
+              {group.title !== "个人" &&
+                group.items.map((item) => (
+                  <NavLink
+                    key={item.href}
+                    item={item}
+                    active={location === item.href}
+                  />
+                ))}
             </div>
           </div>
         ))}
