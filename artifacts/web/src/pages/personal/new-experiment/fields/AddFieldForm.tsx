@@ -1,12 +1,34 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import type { ExperimentField, FieldType } from "@/types/experimentFields";
-import { genFieldId } from "@/types/experimentFields";
+import { makeField } from "@/types/experimentFields";
 
 interface Props {
   onAdd: (field: ExperimentField) => void;
   onCancel: () => void;
 }
+
+const TYPE_OPTIONS: {
+  value: FieldType;
+  label: string;
+  desc: string;
+}[] = [
+  {
+    value: "text",
+    label: "单值文本",
+    desc: "适合名称、类型、目标等单段内容",
+  },
+  {
+    value: "list",
+    label: "多项列表",
+    desc: "适合步骤、注意事项等多条文本",
+  },
+  {
+    value: "object",
+    label: "对象卡片",
+    desc: "适合设备、材料、样品等需要记录属性标签的类别",
+  },
+];
 
 export function AddFieldForm({ onAdd, onCancel }: Props) {
   const [name, setName] = useState("");
@@ -20,13 +42,7 @@ export function AddFieldForm({ onAdd, onCancel }: Props) {
   function handleAdd() {
     const trimmed = name.trim();
     if (!trimmed) return;
-    onAdd({
-      id: genFieldId(),
-      name: trimmed,
-      type,
-      value: "",
-      items: [],
-    });
+    onAdd(makeField(trimmed, type));
     setName("");
   }
 
@@ -55,17 +71,12 @@ export function AddFieldForm({ onAdd, onCancel }: Props) {
 
       <div className="flex flex-col gap-2">
         <label className="text-xs text-gray-400">内容类型</label>
-        <div className="flex gap-4">
-          {(
-            [
-              { value: "text", label: "单值文本", desc: "适合名称、类型、目标等单段内容" },
-              { value: "list", label: "多项列表", desc: "适合材料、设备、研究对象等多条内容" },
-            ] as const
-          ).map((opt) => (
+        <div className="flex flex-col gap-2">
+          {TYPE_OPTIONS.map((opt) => (
             <label
               key={opt.value}
               className={[
-                "flex items-start gap-2 flex-1 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors",
+                "flex items-start gap-2 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors",
                 type === opt.value
                   ? "border-gray-900 bg-white"
                   : "border-gray-200 bg-white hover:border-gray-300",

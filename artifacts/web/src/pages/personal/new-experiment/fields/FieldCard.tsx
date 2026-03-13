@@ -3,7 +3,7 @@ import { Trash2, Pencil, Check, X, Plus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import type { ExperimentField } from "@/types/experimentFields";
-import { genFieldId } from "@/types/experimentFields";
+import { ObjectField } from "./ObjectField";
 
 interface Props {
   field: ExperimentField;
@@ -12,7 +12,7 @@ interface Props {
 }
 
 // ---------------------------------------------------------------------------
-// List item sub-component
+// List item sub-component (for type === "list")
 // ---------------------------------------------------------------------------
 
 interface ListItemRowProps {
@@ -49,18 +49,10 @@ function ListItemRow({
           }}
           className="flex-1 h-7 text-sm"
         />
-        <button
-          onClick={onConfirmEdit}
-          className="text-green-600 hover:text-green-700 p-0.5 rounded"
-          title="保存"
-        >
+        <button onClick={onConfirmEdit} className="text-green-600 hover:text-green-700 p-0.5 rounded" title="保存">
           <Check size={14} />
         </button>
-        <button
-          onClick={onCancelEdit}
-          className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
-          title="取消"
-        >
+        <button onClick={onCancelEdit} className="text-gray-400 hover:text-gray-600 p-0.5 rounded" title="取消">
           <X size={14} />
         </button>
       </div>
@@ -90,16 +82,23 @@ function ListItemRow({
 }
 
 // ---------------------------------------------------------------------------
-// Main FieldCard
+// FieldCard — top-level card for a single field category
 // ---------------------------------------------------------------------------
 
+const TYPE_LABELS: Record<string, string> = {
+  text: "单值文本",
+  list: "多项列表",
+  object: "对象卡片",
+};
+
 export function FieldCard({ field, onChange, onDelete }: Props) {
+  // List field state
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState("");
   const [addingText, setAddingText] = useState("");
   const [showAddInput, setShowAddInput] = useState(false);
 
-  // ------ helpers for list operations ------
+  // ------ list helpers ------
 
   function startEdit(index: number) {
     setEditingIndex(index);
@@ -121,7 +120,7 @@ export function FieldCard({ field, onChange, onDelete }: Props) {
     setEditingValue("");
   }
 
-  function deleteItem(index: number) {
+  function deleteListItem(index: number) {
     onChange({ ...field, items: field.items.filter((_, i) => i !== index) });
     if (editingIndex === index) cancelEdit();
   }
@@ -134,30 +133,12 @@ export function FieldCard({ field, onChange, onDelete }: Props) {
     setShowAddInput(false);
   }
 
-  // ------ render ------
+  // ------ render body ------
 
-  return (
-    <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-      {/* Card header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50/60">
-        <span className="text-sm font-medium text-gray-700">{field.name}</span>
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-300 mr-2">
-            {field.type === "list" ? "多项列表" : "单值文本"}
-          </span>
-          <button
-            onClick={onDelete}
-            className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded"
-            title="删除该字段类别"
-          >
-            <Trash2 size={13} />
-          </button>
-        </div>
-      </div>
-
-      {/* Card body */}
-      <div className="px-4 py-3">
-        {field.type === "text" ? (
+  function renderBody() {
+    switch (field.type) {
+      case "text":
+        return (
           <Textarea
             rows={3}
             className="resize-none text-sm"
@@ -165,12 +146,14 @@ export function FieldCard({ field, onChange, onDelete }: Props) {
             value={field.value}
             onChange={(e) => onChange({ ...field, value: e.target.value })}
           />
-        ) : (
+        );
+
+      case "list":
+        return (
           <div className="flex flex-col gap-1">
             {field.items.length === 0 && !showAddInput && (
               <p className="text-xs text-gray-300 py-1">暂无内容，点击下方按钮添加</p>
             )}
-
             {field.items.map((item, i) => (
               <ListItemRow
                 key={`${field.id}-item-${i}`}
@@ -181,10 +164,9 @@ export function FieldCard({ field, onChange, onDelete }: Props) {
                 onStartEdit={() => startEdit(i)}
                 onConfirmEdit={confirmEdit}
                 onCancelEdit={cancelEdit}
-                onDelete={() => deleteItem(i)}
+                onDelete={() => deleteListItem(i)}
               />
             ))}
-
             {showAddInput ? (
               <div className="flex items-center gap-2 mt-1">
                 <Input
@@ -193,27 +175,17 @@ export function FieldCard({ field, onChange, onDelete }: Props) {
                   onChange={(e) => setAddingText(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") confirmAdd();
-                    if (e.key === "Escape") {
-                      setAddingText("");
-                      setShowAddInput(false);
-                    }
+                    if (e.key === "Escape") { setAddingText(""); setShowAddInput(false); }
                   }}
                   placeholder="输入新一项内容…"
                   className="flex-1 h-7 text-sm"
                 />
-                <button
-                  onClick={confirmAdd}
-                  className="text-green-600 hover:text-green-700 p-0.5 rounded"
-                  title="确认"
-                >
+                <button onClick={confirmAdd} className="text-green-600 hover:text-green-700 p-0.5" title="确认">
                   <Check size={14} />
                 </button>
                 <button
-                  onClick={() => {
-                    setAddingText("");
-                    setShowAddInput(false);
-                  }}
-                  className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
+                  onClick={() => { setAddingText(""); setShowAddInput(false); }}
+                  className="text-gray-400 hover:text-gray-600 p-0.5"
                   title="取消"
                 >
                   <X size={14} />
@@ -229,8 +201,40 @@ export function FieldCard({ field, onChange, onDelete }: Props) {
               </button>
             )}
           </div>
-        )}
+        );
+
+      case "object":
+        return (
+          <ObjectField
+            objects={field.objects}
+            onChange={(objects) => onChange({ ...field, objects })}
+          />
+        );
+
+      default:
+        return null;
+    }
+  }
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+      {/* Card header */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50/60">
+        <span className="text-sm font-medium text-gray-700">{field.name}</span>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-300 mr-2">{TYPE_LABELS[field.type] ?? field.type}</span>
+          <button
+            onClick={onDelete}
+            className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded"
+            title="删除该字段类别"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
       </div>
+
+      {/* Card body */}
+      <div className="px-4 py-3">{renderBody()}</div>
     </div>
   );
 }

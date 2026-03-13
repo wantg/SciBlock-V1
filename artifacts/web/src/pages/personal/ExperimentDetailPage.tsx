@@ -1,34 +1,65 @@
 import React from "react";
 import { useParams } from "wouter";
-import { BookOpen, FlaskConical, Package, Wrench, BarChart2 } from "lucide-react";
+import { BookOpen, FlaskConical, Package, Wrench, BarChart2, Tag as TagIcon } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSciNoteStore } from "@/contexts/SciNoteStoreContext";
 import type { WizardFormData } from "@/types/wizardForm";
-import type { ExperimentField } from "@/types/experimentFields";
+import type { ExperimentField, ObjectItem } from "@/types/experimentFields";
 import { getExperimentName } from "@/types/experimentFields";
 
 // ---------------------------------------------------------------------------
-// Step 2 field rendering — mirrors the configurable field groups from the wizard
+// Object item summary (read-only) — mirrors the ObjectItemCard editing card
+// ---------------------------------------------------------------------------
+
+function ObjectItemSummary({ item }: { item: ObjectItem }) {
+  return (
+    <div className="bg-white rounded-lg border border-gray-100 px-4 pt-3 pb-3 flex flex-col gap-2">
+      <p className="text-base font-semibold text-gray-800 leading-tight">{item.name || "—"}</p>
+      {item.tags.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-1 text-xs text-gray-400">
+            <TagIcon size={11} />
+            <span>属性标签</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {item.tags.map((tag) => (
+              <span
+                key={tag.id}
+                className="inline-block bg-slate-100 text-slate-600 text-xs rounded-full px-2.5 py-0.5"
+              >
+                {tag.value ? `${tag.key}: ${tag.value}` : tag.key}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Step 2 field rendering — mirrors the FieldEditor + FieldCard structure
 // ---------------------------------------------------------------------------
 
 function FieldSummaryCard({ field }: { field: ExperimentField }) {
   const isEmpty =
     field.type === "text"
       ? !field.value.trim()
-      : field.items.length === 0;
+      : field.type === "list"
+        ? field.items.length === 0
+        : field.objects.length === 0;
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 px-5 py-4">
-      <p className="text-xs font-semibold text-gray-400 tracking-wide uppercase mb-2">
+      <p className="text-xs font-semibold text-gray-400 tracking-wide uppercase mb-3">
         {field.name}
       </p>
+
       {isEmpty ? (
         <p className="text-sm text-gray-300 italic">未填写</p>
       ) : field.type === "text" ? (
-        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-          {field.value}
-        </p>
-      ) : (
+        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{field.value}</p>
+      ) : field.type === "list" ? (
         <ul className="flex flex-col gap-1">
           {field.items.map((item, i) => (
             <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
@@ -37,16 +68,19 @@ function FieldSummaryCard({ field }: { field: ExperimentField }) {
             </li>
           ))}
         </ul>
+      ) : (
+        /* object */
+        <div className="flex flex-col gap-2">
+          {field.objects.map((obj) => (
+            <ObjectItemSummary key={obj.id} item={obj} />
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-interface Step2SummaryProps {
-  fields: ExperimentField[];
-}
-
-function Step2Summary({ fields }: Step2SummaryProps) {
+function Step2Summary({ fields }: { fields: ExperimentField[] }) {
   if (fields.length === 0) return null;
   return (
     <div className="flex flex-col gap-3">
@@ -72,9 +106,7 @@ function InfoCard({ icon, label, value }: InfoCardProps) {
     <div className="bg-white rounded-xl border border-gray-100 px-5 py-4">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-gray-400">{icon}</span>
-        <span className="text-xs font-semibold text-gray-400 tracking-wide uppercase">
-          {label}
-        </span>
+        <span className="text-xs font-semibold text-gray-400 tracking-wide uppercase">{label}</span>
       </div>
       <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
         {value || <span className="text-gray-300 italic">未填写</span>}
@@ -147,7 +179,7 @@ export function ExperimentDetailPage() {
           )}
         </div>
 
-        {/* Step 2 — 实验系统 (dynamic field list) */}
+        {/* Step 2 — 实验系统 (dynamic fields) */}
         {note.formData && note.formData.step2.fields.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold text-gray-500 mb-3">实验系统</h2>

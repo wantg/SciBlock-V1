@@ -71,10 +71,30 @@ src/
     └── not-found.tsx
 ```
 
+**Field / category model (Step 2 "实验系统"):**
+
+Step 2 uses a configurable field-group model. Each field has `type: "text" | "list" | "object"`.
+
+- `"text"` — single textarea (实验名称, 实验类型, 实验目标 etc.)
+- `"list"` — flat list of string items with add/edit/delete
+- `"object"` — list of `ObjectItem` entries, each with:
+  - `name: string` — primary identifier (e.g. "UV-Vis 分光光度计")
+  - `tags: Tag[]` — structured attribute tags, each `{ id, key, value }` (e.g. 型号: Lambda 950)
+  - TagBadge: click to edit key+value inline; × to delete
+  - ObjectItemCard: borderless name input + attribute tags + add-tag form
+
+State shape in `types/experimentFields.ts`:
+```typescript
+ExperimentField { id, name, type, value, items: string[], objects: ObjectItem[] }
+ObjectItem { id, name, tags: Tag[] }
+Tag { id, key, value }
+```
+Field categories `实验设备`, `实验材料`, `研究对象` default to `"object"` type in AI mock data.
+
 **State architecture:**
 - `SciNoteStoreContext` — single source of truth for all SciNotes (initialized with placeholder data + all wizard-created notes). Provided at `AuthenticatedLayout` level so sidebar and pages share the same list.
 - `NewExperimentDraftContext` — tracks the live experiment name during initialization (string | null). The wizard page publishes changes; the sidebar reads it to show the draft entry. Cleared on unmount.
-- `useWizardForm` — local hook inside `NewExperimentPage`, owns step2–6 form state. `canFinish = step2.experimentName.trim().length > 0`.
+- `useWizardForm` — local hook inside `NewExperimentPage`, owns step2–6 form state. `canFinish` is derived from `getExperimentName(fields)` finding the "实验名称" text field.
 - Wizard-created SciNotes link to `/personal/experiment/:id`; placeholder ones link to `/personal/note/:id`.
 
 **Conventions:**

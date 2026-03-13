@@ -1,21 +1,25 @@
 import type { WizardFormData } from "@/types/wizardForm";
 
 /**
- * Front-end mock data that simulates an AI extraction from uploaded references.
- * Step 2 fields are structured as ExperimentField[] so the user can add/remove/edit
- * individual field categories after the AI provides an initial draft.
+ * Front-end mock data simulating AI extraction from uploaded references.
  *
- * Replace this with a real AI API response when the backend is ready.
+ * Step 2 uses the configurable field model:
+ *   - "text"   fields for scalar values (实验名称, 实验目标…)
+ *   - "object" fields for structured items with attribute tags (研究对象, 实验设备)
+ *
+ * Replace with a real AI API response when the backend is ready.
  */
 export const AI_MOCK_FILL: WizardFormData = {
   step2: {
     fields: [
+      // ---- scalar text fields ----
       {
         id: "ai-1",
         name: "实验名称",
         type: "text",
         value: "基于纳米粒子的催化性能研究",
         items: [],
+        objects: [],
       },
       {
         id: "ai-2",
@@ -23,6 +27,7 @@ export const AI_MOCK_FILL: WizardFormData = {
         type: "text",
         value: "材料性能测试",
         items: [],
+        objects: [],
       },
       {
         id: "ai-3",
@@ -31,13 +36,7 @@ export const AI_MOCK_FILL: WizardFormData = {
         value:
           "验证功能化纳米粒子在目标催化反应中的转化效率，探究粒径分布与催化活性的定量关联，为后续工艺优化提供基础实验数据。",
         items: [],
-      },
-      {
-        id: "ai-4",
-        name: "研究对象",
-        type: "list",
-        value: "",
-        items: ["TiO₂ 纳米催化剂（粒径 20 nm）", "底物溶液（浓度 0.1 mol/L）", "模型目标污染物"],
+        objects: [],
       },
       {
         id: "ai-5",
@@ -45,6 +44,75 @@ export const AI_MOCK_FILL: WizardFormData = {
         type: "text",
         value: "粒径越小的 TiO₂ 纳米粒子因比表面积更大，催化活性越高，底物转化率越高。",
         items: [],
+        objects: [],
+      },
+
+      // ---- object card fields ----
+      {
+        id: "ai-4",
+        name: "研究对象",
+        type: "object",
+        value: "",
+        items: [],
+        objects: [
+          {
+            id: "obj-1",
+            name: "TiO₂ 纳米催化剂",
+            tags: [
+              { id: "t-1", key: "粒径", value: "20 nm" },
+              { id: "t-2", key: "用量", value: "50 mg" },
+              { id: "t-3", key: "类型", value: "无机金属氧化物" },
+            ],
+          },
+          {
+            id: "obj-2",
+            name: "底物溶液",
+            tags: [
+              { id: "t-4", key: "浓度", value: "0.1 mol/L" },
+              { id: "t-5", key: "体积", value: "100 mL" },
+            ],
+          },
+          {
+            id: "obj-3",
+            name: "模型目标污染物",
+            tags: [
+              { id: "t-6", key: "类型", value: "有机染料" },
+              { id: "t-7", key: "特征吸收波长", value: "664 nm" },
+            ],
+          },
+        ],
+      },
+      {
+        id: "ai-6",
+        name: "实验设备",
+        type: "object",
+        value: "",
+        items: [],
+        objects: [
+          {
+            id: "eq-1",
+            name: "UV-Vis 分光光度计",
+            tags: [
+              { id: "t-10", key: "型号", value: "Lambda 950" },
+              { id: "t-11", key: "测量范围", value: "200–800 nm" },
+            ],
+          },
+          {
+            id: "eq-2",
+            name: "超声破碎仪",
+            tags: [
+              { id: "t-12", key: "功率", value: "400 W" },
+              { id: "t-13", key: "频率", value: "20 kHz" },
+            ],
+          },
+          {
+            id: "eq-3",
+            name: "分析天平",
+            tags: [
+              { id: "t-14", key: "精度", value: "0.0001 g" },
+            ],
+          },
+        ],
       },
     ],
   },
@@ -84,7 +152,6 @@ export const AI_MOCK_FILL: WizardFormData = {
       "UV-Vis 分光光度计（测量范围 200–800 nm）、HPLC 系统、分析天平（精度 0.0001 g）、超声破碎仪",
   },
 
-  // Step 6 is intentionally empty — data collection happens during the experiment.
   step6: {
     recordingMethod: "",
     expectedResults: "",

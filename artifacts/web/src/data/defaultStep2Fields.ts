@@ -5,7 +5,7 @@ import type { ExperimentField } from "@/types/experimentFields";
  * AI-generated content replaces this entire list via populateFromAI.
  */
 export const DEFAULT_STEP2_FIELDS: ExperimentField[] = [
-  { id: "default-1", name: "实验名称", type: "text", value: "", items: [] },
-  { id: "default-2", name: "实验类型", type: "text", value: "", items: [] },
-  { id: "default-3", name: "实验目标", type: "text", value: "", items: [] },
+  { id: "default-1", name: "实验名称", type: "text", value: "", items: [], objects: [] },
+  { id: "default-2", name: "实验类型", type: "text", value: "", items: [], objects: [] },
+  { id: "default-3", name: "实验目标", type: "text", value: "", items: [], objects: [] },
 ];
