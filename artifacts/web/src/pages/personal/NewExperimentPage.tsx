@@ -1,12 +1,31 @@
 import React, { useState } from "react";
 import { StepNav } from "./new-experiment/StepNav";
+import { Step1Choice } from "./new-experiment/steps/Step1Choice";
 import { Step1References } from "./new-experiment/steps/Step1References";
 import { useReferences } from "@/hooks/useReferences";
 import { PLACEHOLDER_REFERENCES } from "@/data/experimentReferences";
 
+type Step1Path = "choice" | "uploading";
+
 export function NewExperimentPage() {
   const [activeStepId, setActiveStepId] = useState(1);
+  const [step1Path, setStep1Path] = useState<Step1Path>("choice");
   const refs = useReferences(PLACEHOLDER_REFERENCES);
+
+  function handleChooseUpload() {
+    setStep1Path("uploading");
+  }
+
+  function handleSkip() {
+    // Skip upload entirely — advance straight to step 2 (manual flow).
+    setActiveStepId(2);
+  }
+
+  function handleStepClick(stepId: number) {
+    // Clicking back to step 1 from elsewhere resets to the choice screen.
+    if (stepId === 1) setStep1Path("choice");
+    setActiveStepId(stepId);
+  }
 
   function handleFinish() {
     // TODO: navigate to the created SciNote when backend is ready
@@ -16,6 +35,14 @@ export function NewExperimentPage() {
   function renderStepContent() {
     switch (activeStepId) {
       case 1:
+        if (step1Path === "choice") {
+          return (
+            <Step1Choice
+              onChooseUpload={handleChooseUpload}
+              onSkip={handleSkip}
+            />
+          );
+        }
         return (
           <Step1References
             files={refs.files}
@@ -46,7 +73,7 @@ export function NewExperimentPage() {
         </p>
         <StepNav
           activeStepId={activeStepId}
-          onStepClick={setActiveStepId}
+          onStepClick={handleStepClick}
           canFinish={false}
           onFinish={handleFinish}
         />
