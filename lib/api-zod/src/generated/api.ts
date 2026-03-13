@@ -33,3 +33,15 @@ export const LoginResponse = zod.object({
     name: zod.string(),
   }),
 });
+
+/**
+ * Create a new user. Requires X-Admin-Secret header.
+ * @summary Create user (admin)
+ */
+export const adminCreateUserBodyPasswordMin = 6;
+
+export const AdminCreateUserBody = zod.object({
+  email: zod.string().email(),
+  password: zod.string().min(adminCreateUserBodyPasswordMin),
+  name: zod.string().min(1),
+});

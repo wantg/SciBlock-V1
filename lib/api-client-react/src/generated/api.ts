@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  CreateUserRequest,
+  CreateUserResponse,
   ErrorResponse,
   HealthStatus,
   LoginRequest,
@@ -193,4 +195,91 @@ export const useLogin = <
   TContext
 > => {
   return useMutation(getLoginMutationOptions(options));
+};
+
+/**
+ * Create a new user. Requires X-Admin-Secret header.
+ * @summary Create user (admin)
+ */
+export const getAdminCreateUserUrl = () => {
+  return `/api/admin/users`;
+};
+
+export const adminCreateUser = async (
+  createUserRequest: CreateUserRequest,
+  options?: RequestInit,
+): Promise<CreateUserResponse> => {
+  return customFetch<CreateUserResponse>(getAdminCreateUserUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createUserRequest),
+  });
+};
+
+export const getAdminCreateUserMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateUser>>,
+    TError,
+    { data: BodyType<CreateUserRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateUser>>,
+  TError,
+  { data: BodyType<CreateUserRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateUser>>,
+    { data: BodyType<CreateUserRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateUser(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateUser>>
+>;
+export type AdminCreateUserMutationBody = BodyType<CreateUserRequest>;
+export type AdminCreateUserMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create user (admin)
+ */
+export const useAdminCreateUser = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateUser>>,
+    TError,
+    { data: BodyType<CreateUserRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateUser>>,
+  TError,
+  { data: BodyType<CreateUserRequest> },
+  TContext
+> => {
+  return useMutation(getAdminCreateUserMutationOptions(options));
 };

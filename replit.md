@@ -16,8 +16,21 @@ React + Vite frontend. Routes:
 ### `artifacts/api-server` (`@workspace/api-server`)
 
 Express backend. Routes:
-- `POST /api/auth/login` — mock login (returns user or 401)
+- `POST /api/auth/login` — login against real users table (bcrypt password check)
+- `POST /api/admin/users` — admin-only: create user. Requires `X-Admin-Secret` header matching `ADMIN_SECRET` env var
 - `GET /api/healthz` — health check
+
+Admin user creation example:
+```
+curl -X POST /api/admin/users \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Secret: <ADMIN_SECRET value>" \
+  -d '{"email":"user@example.com","password":"pass123","name":"User Name"}'
+```
+
+## Database
+
+- `users` table: id (uuid), email (unique), password_hash (bcrypt), name, created_at
 
 ## Stack
 

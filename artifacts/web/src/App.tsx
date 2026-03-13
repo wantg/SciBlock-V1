@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { LoginPage } from "@/pages/login/LoginPage";
 import { HomePage } from "@/pages/HomePage";
+import { RequestAccessPage } from "@/pages/RequestAccessPage";
 
 const queryClient = new QueryClient();
 
@@ -13,6 +14,7 @@ function Router() {
     <Switch>
       <Route path="/login" component={LoginPage} />
       <Route path="/home" component={HomePage} />
+      <Route path="/signup" component={RequestAccessPage} />
       <Route path="/">
         {() => {
           window.location.replace(

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { InputField } from "./InputField";
 import { CheckboxField } from "./CheckboxField";
 import { AuthButton } from "./AuthButton";
@@ -78,9 +78,9 @@ export function AuthCard() {
         </h1>
         <p className="mt-2 text-sm text-gray-500">
           Don't have an account?{" "}
-          <a href="#" className="text-gray-900 font-medium underline underline-offset-2">
+          <Link href="/signup" className="text-gray-900 font-medium underline underline-offset-2">
             Sign up
-          </a>
+          </Link>
         </p>
       </div>
 

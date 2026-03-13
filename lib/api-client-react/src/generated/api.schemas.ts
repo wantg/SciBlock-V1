@@ -26,6 +26,19 @@ export interface LoginResponse {
   user: User;
 }
 
+export interface CreateUserRequest {
+  email: string;
+  /** @minLength 6 */
+  password: string;
+  /** @minLength 1 */
+  name: string;
+}
+
+export interface CreateUserResponse {
+  success: boolean;
+  user: User;
+}
+
 export interface ErrorResponse {
   error: string;
   message: string;

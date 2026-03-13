@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: auth
     description: Authentication operations
+  - name: admin
+    description: Admin operations
 paths:
   /healthz:
     get:
@@ -51,6 +53,43 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /admin/users:
+    post:
+      operationId: adminCreateUser
+      tags: [admin]
+      summary: Create user (admin)
+      description: Create a new user. Requires X-Admin-Secret header.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateUserResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -73,6 +112,32 @@ components:
         - email
         - password
     LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        user:
+          $ref: "#/components/schemas/User"
+      required:
+        - success
+        - user
+    CreateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        name:
+          type: string
+          minLength: 1
+      required:
+        - email
+        - password
+        - name
+    CreateUserResponse:
       type: object
       properties:
         success:
