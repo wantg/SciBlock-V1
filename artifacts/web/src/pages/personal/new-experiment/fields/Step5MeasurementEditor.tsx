@@ -1,8 +1,12 @@
 /**
- * MeasurementModuleEditor — per-item inline editing for the 测量过程 module.
+ * Step5MeasurementEditor — wizard-side list editor for Step 5 (测量过程).
  *
- * Card components are shared with wizard Step5MeasurementEditor via:
- *   workbench/modules/shared/MeasurementItemCards.tsx
+ * Shares MeasurementItemEditCard / MeasurementItemViewCard with the
+ * workbench MeasurementModuleEditor.  Key difference: showAttachments=false
+ * (attachments are not relevant at the planning stage).
+ *
+ * Write rule: only ever writes to Step5Data.items[].
+ * Legacy Step5Data.fields is never touched here.
  */
 
 import React, { useState } from "react";
@@ -11,7 +15,7 @@ import type { MeasurementItem } from "@/types/ontologyModules";
 import {
   MeasurementItemEditCard,
   MeasurementItemViewCard,
-} from "./shared/MeasurementItemCards";
+} from "@/pages/personal/workbench/modules/shared/MeasurementItemCards";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -21,20 +25,20 @@ function makeId(): string {
   return `meas-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function makeBlankMeasurement(): MeasurementItem {
+function makeBlankItem(): MeasurementItem {
   return { id: makeId(), name: "", target: "", conditions: [], attachments: [] };
 }
 
 // ---------------------------------------------------------------------------
-// MeasurementModuleEditor
+// Step5MeasurementEditor
 // ---------------------------------------------------------------------------
 
-interface EditorProps {
+interface Props {
   items: MeasurementItem[];
-  onUpdate: (items: MeasurementItem[]) => void;
+  onChange: (items: MeasurementItem[]) => void;
 }
 
-export function MeasurementModuleEditor({ items, onUpdate }: EditorProps) {
+export function Step5MeasurementEditor({ items, onChange }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<MeasurementItem | null>(null);
   const [pendingNew, setPendingNew] = useState<MeasurementItem | null>(null);
@@ -47,7 +51,7 @@ export function MeasurementModuleEditor({ items, onUpdate }: EditorProps) {
 
   function saveEdit() {
     if (!editingId || !editDraft) return;
-    onUpdate(items.map((m) => (m.id === editingId ? editDraft : m)));
+    onChange(items.map((m) => (m.id === editingId ? editDraft : m)));
     setEditingId(null);
     setEditDraft(null);
   }
@@ -60,12 +64,12 @@ export function MeasurementModuleEditor({ items, onUpdate }: EditorProps) {
   function startCreate() {
     setEditingId(null);
     setEditDraft(null);
-    setPendingNew(makeBlankMeasurement());
+    setPendingNew(makeBlankItem());
   }
 
   function saveCreate() {
     if (!pendingNew || !pendingNew.name.trim()) return;
-    onUpdate([...items, pendingNew]);
+    onChange([...items, pendingNew]);
     setPendingNew(null);
   }
 
@@ -75,18 +79,18 @@ export function MeasurementModuleEditor({ items, onUpdate }: EditorProps) {
 
   function deleteItem(id: string) {
     if (editingId === id) cancelEdit();
-    onUpdate(items.filter((m) => m.id !== id));
+    onChange(items.filter((m) => m.id !== id));
   }
 
   function updateItemDirect(id: string, updated: MeasurementItem) {
-    onUpdate(items.map((m) => (m.id === id ? updated : m)));
+    onChange(items.map((m) => (m.id === id ? updated : m)));
   }
 
   return (
-    <div className="flex flex-col gap-2.5 px-4 py-3">
+    <div className="flex flex-col gap-2.5">
       {items.length === 0 && !pendingNew && (
-        <p className="text-xs text-gray-300 py-1 text-center">
-          暂无测量项，点击"新增测量项"开始添加
+        <p className="text-sm text-gray-400 text-center py-4 border border-dashed border-gray-200 rounded-xl">
+          尚未添加测量项，点击下方"新增测量项"开始
         </p>
       )}
 
@@ -98,7 +102,7 @@ export function MeasurementModuleEditor({ items, onUpdate }: EditorProps) {
             onChange={setEditDraft}
             onSave={saveEdit}
             onCancel={cancelEdit}
-            showAttachments={true}
+            showAttachments={false}
           />
         ) : (
           <MeasurementItemViewCard
@@ -117,16 +121,16 @@ export function MeasurementModuleEditor({ items, onUpdate }: EditorProps) {
           onChange={setPendingNew}
           onSave={saveCreate}
           onCancel={cancelCreate}
-          showAttachments={true}
+          showAttachments={false}
         />
       )}
 
       <button
         type="button"
         onClick={startCreate}
-        className="flex items-center justify-center gap-1.5 text-xs text-gray-400 border border-dashed border-gray-300 rounded-lg px-3 py-2.5 hover:border-gray-400 hover:text-gray-600 transition-colors w-full"
+        className="flex items-center justify-center gap-1.5 text-sm text-gray-500 border border-dashed border-gray-300 rounded-xl px-4 py-3 hover:border-gray-400 hover:text-gray-700 transition-colors w-full"
       >
-        <Plus size={12} />
+        <Plus size={14} />
         新增测量项
       </button>
     </div>

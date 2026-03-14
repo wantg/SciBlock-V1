@@ -352,20 +352,18 @@ function step4ToOperationSteps(fields: ExperimentField[]): OperationStep[] {
 // ----- Step 5 → 测量过程 -----
 
 /**
- * TODO: Step 5's four-field structure (测量方法 / 测量对象 / 测量条件 / 测量仪器)
- * is semantically misaligned with MeasurementItem, which collapses all four
- * into sub-fields of a single card. A full mapping requires restructuring how
- * step 5 collects data (e.g. one object-card per measurement, with named tags).
+ * Legacy fallback — only used when a note still carries the old
+ * Step5Data.fields format (four parallel field groups: 测量方法 / 测量对象 /
+ * 测量条件 / 测量仪器).
  *
- * Best-effort for this round:
- *   - Each ObjectItem across all step5 fields → one MeasurementItem
- *   - ObjectItem.name → MeasurementItem.name
- *   - ObjectItem.tags → MeasurementItem.conditions
- *   - method / instrument / target populated when field name gives a clear hint
+ * This is a best-effort mapping that cannot reconstruct the cross-field
+ * relationships.  The original formData is always preserved on SciNote so
+ * no data is lost even if the mapping is imperfect.
  *
- * The original step5 data is preserved on SciNote.formData and will not be lost.
+ * This function will never be called for notes created after the Step 5
+ * refactor — those notes carry items[] and go through the passthrough path.
  */
-function step5ToMeasurementItems(fields: ExperimentField[]): MeasurementItem[] {
+function step5ToMeasurementItemsLegacy(fields: ExperimentField[]): MeasurementItem[] {
   const items: MeasurementItem[] = [];
 
   for (const field of fields) {
@@ -395,6 +393,26 @@ function step5ToMeasurementItems(fields: ExperimentField[]): MeasurementItem[] {
   }
 
   return items;
+}
+
+/**
+ * step5ToMeasurementItems — dispatch between the two Step5Data formats.
+ *
+ * New format (items[]): direct passthrough — 1:1 fidelity, zero conversion.
+ * Legacy format (fields[]): best-effort mapping via the legacy function above.
+ *
+ * The check is ordered: if items is present and non-empty, it always wins.
+ * This ensures new notes never fall through to the legacy path even if
+ * fields? happens to exist on the object for some reason.
+ */
+function step5ToMeasurementItems(step5: { items?: MeasurementItem[]; fields?: ExperimentField[] }): MeasurementItem[] {
+  if (step5.items && step5.items.length > 0) {
+    return step5.items;
+  }
+  if (step5.fields && step5.fields.length > 0) {
+    return step5ToMeasurementItemsLegacy(step5.fields);
+  }
+  return [];
 }
 
 // ----- Step 6 → 实验数据 -----
@@ -466,7 +484,7 @@ export function wizardToModules(formData: WizardFormData): OntologyModule[] {
     makeModule("system",      "实验系统", { systemObjects:    step2ToSystemObjects(formData.step2.fields) }),
     makeModule("preparation", "实验准备", { prepItems:        step3ToPrepItems(formData.step3.fields)    }),
     makeModule("operation",   "实验操作", { operationSteps:   step4ToOperationSteps(formData.step4.fields) }),
-    makeModule("measurement", "测量过程", { measurementItems: step5ToMeasurementItems(formData.step5.fields) }),
+    makeModule("measurement", "测量过程", { measurementItems: step5ToMeasurementItems(formData.step5) }),
     makeModule("data",        "实验数据", { dataItems:        step6ToDataItems(formData.step6.fields)    }),
   ];
 }

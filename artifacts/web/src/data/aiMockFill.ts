@@ -167,61 +167,58 @@ export const AI_MOCK_FILL: WizardFormData = {
   },
 
   // ── Step 5 — 测量过程 ─────────────────────────────────────────────────────
+  // New format: items[] — each entry is one complete measurement event.
+  // name = 测量项名称; target = 测量目标; method / instrument optional.
   step5: {
-    fields: [
+    items: [
       {
-        id: "ai-s5-1", name: "测量方法", type: "object", value: "", items: [],
-        objects: [
-          { id: "s5o-1", name: "UV-Vis 分光光度法", tags: [
-            { id: "s5t-1", key: "用途", value: "测定底物浓度" },
-            { id: "s5t-2", key: "检测波长", value: "664 nm" },
-          ]},
-          { id: "s5o-2", name: "HPLC 分析", tags: [
-            { id: "s5t-3", key: "用途", value: "确认产物纯度及产率" },
-          ]},
+        id: "ai-s5-item-1",
+        name: "UV-Vis 底物浓度测定",
+        method: "UV-Vis 分光光度法",
+        instrument: "UV-Vis 分光光度计（Lambda 950）",
+        target: "测定亚甲基蓝底物转化率，量化光催化降解效率",
+        conditions: [
+          { id: "ai-s5c-1", key: "检测波长",  value: "664 nm" },
+          { id: "ai-s5c-2", key: "测量温度",  value: "25°C" },
+          { id: "ai-s5c-3", key: "量程",      value: "200–800 nm" },
+          { id: "ai-s5c-4", key: "取样间隔",  value: "10 min" },
+          { id: "ai-s5c-5", key: "取样总次数", value: "6 次" },
         ],
+        attachments: [],
       },
       {
-        id: "ai-s5-2", name: "测量对象", type: "object", value: "", items: [],
-        objects: [
-          { id: "s5m-1", name: "底物转化率", tags: [
-            { id: "s5t-4", key: "单位", value: "%" },
-            { id: "s5t-5", key: "计算方式", value: "标准曲线法" },
-          ]},
-          { id: "s5m-2", name: "产物产率", tags: [
-            { id: "s5t-6", key: "单位", value: "%" },
-          ]},
-          { id: "s5m-3", name: "表观速率常数 k", tags: [
-            { id: "s5t-7", key: "拟合方式", value: "线性回归" },
-          ]},
+        id: "ai-s5-item-2",
+        name: "HPLC 产物纯度与产率分析",
+        method: "HPLC 分析",
+        instrument: "HPLC 系统",
+        target: "确认反应产物纯度及产率，排除副产物干扰",
+        conditions: [
+          { id: "ai-s5c-6", key: "用途", value: "产物分析" },
         ],
+        attachments: [],
       },
       {
-        id: "ai-s5-3", name: "测量条件", type: "object", value: "", items: [],
-        objects: [
-          { id: "s5c-1", name: "测量温度", tags: [
-            { id: "s5t-8", key: "值", value: "25°C" },
-          ]},
-          { id: "s5c-2", name: "取样间隔", tags: [
-            { id: "s5t-9",  key: "时间间隔", value: "10 min" },
-            { id: "s5t-10", key: "总次数", value: "6 次" },
-          ]},
+        id: "ai-s5-item-3",
+        name: "表观速率常数 k 计算",
+        method: "线性回归（伪一级动力学）",
+        instrument: undefined,
+        target: "通过 ln(C/C₀) 对时间作图，拟合表观速率常数 k",
+        conditions: [
+          { id: "ai-s5c-7", key: "计算方式", value: "标准曲线法 + 线性回归" },
+          { id: "ai-s5c-8", key: "单位",     value: "min⁻¹" },
         ],
+        attachments: [],
       },
       {
-        id: "ai-s5-4", name: "测量仪器", type: "object", value: "", items: [],
-        objects: [
-          { id: "s5e-1", name: "UV-Vis 分光光度计", tags: [
-            { id: "s5t-11", key: "型号", value: "Lambda 950" },
-            { id: "s5t-12", key: "量程", value: "200–800 nm" },
-          ]},
-          { id: "s5e-2", name: "HPLC 系统", tags: [
-            { id: "s5t-13", key: "用途", value: "产物分析" },
-          ]},
-          { id: "s5e-3", name: "分析天平", tags: [
-            { id: "s5t-14", key: "精度", value: "0.0001 g" },
-          ]},
+        id: "ai-s5-item-4",
+        name: "样品质量称量",
+        method: undefined,
+        instrument: "分析天平",
+        target: "精确记录各试验组催化剂用量，保证数据可重现",
+        conditions: [
+          { id: "ai-s5c-9", key: "精度", value: "0.0001 g" },
         ],
+        attachments: [],
       },
     ],
   },

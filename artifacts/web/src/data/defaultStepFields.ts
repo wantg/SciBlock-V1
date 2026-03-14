@@ -36,6 +36,21 @@ export const DEFAULT_STEP4_FIELDS: ExperimentField[] = [
 // ---------------------------------------------------------------------------
 // Step 5 — 测量过程
 // ---------------------------------------------------------------------------
+
+/**
+ * New format: empty item list.  The wizard Step 5 UI starts blank and the
+ * user adds measurement event cards one by one.
+ *
+ * MeasurementItem[] is imported at the callsite (useWizardForm) to avoid
+ * circular deps with ontologyModules.ts.
+ */
+export const DEFAULT_STEP5_ITEMS = [] as const;
+
+/**
+ * Legacy fallback only — kept so old notes that still carry
+ * `step5.fields` can be read by wizardToModules without error.
+ * Never used as initial state for new wizard sessions.
+ */
 export const DEFAULT_STEP5_FIELDS: ExperimentField[] = [
   { id: "s5-1", name: "测量方法", type: "object", value: "", items: [], objects: [] },
   { id: "s5-2", name: "测量对象", type: "object", value: "", items: [], objects: [] },
