@@ -65,20 +65,22 @@ export default function MemberDetailPage() {
     <div className="flex-1 overflow-y-auto bg-gray-50/70">
 
       {/* ── 面包屑栏 ───────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-6 py-2.5">
-        <button
-          onClick={() => navigate("/home/members")}
-          className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 transition-colors group"
-        >
-          <ChevronLeft size={13} className="group-hover:-translate-x-0.5 transition-transform" />
-          <span>团队成员</span>
-          <span className="text-gray-300 mx-0.5">·</span>
-          <span className="text-gray-900 font-medium">{student.name}</span>
-        </button>
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-100 py-2.5">
+        <div className="max-w-2xl mx-auto px-6">
+          <button
+            onClick={() => navigate("/home/members")}
+            className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 transition-colors group"
+          >
+            <ChevronLeft size={13} className="group-hover:-translate-x-0.5 transition-transform" />
+            <span>团队成员</span>
+            <span className="text-gray-300 mx-0.5">·</span>
+            <span className="text-gray-900 font-medium">{student.name}</span>
+          </button>
+        </div>
       </div>
 
       {/* ── Content ──────────────────────────────────────── */}
-      <div className="px-6 py-5 max-w-2xl flex flex-col gap-6">
+      <div className="px-6 py-5 max-w-2xl mx-auto w-full flex flex-col gap-6">
 
         <ProfileCard
           student={student}
