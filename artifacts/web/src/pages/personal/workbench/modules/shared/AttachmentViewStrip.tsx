@@ -18,7 +18,7 @@
  * Does NOT accept onChange — this is purely presentational.
  */
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Paperclip,
   Image,
@@ -40,6 +40,23 @@ function formatSize(bytes?: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Convert a data URL (base64) to a temporary blob URL.
+ *
+ * Browsers block data: URLs as iframe src (security policy since Chrome 60+).
+ * We store files as data URLs for localStorage persistence, but must convert
+ * them to blob URLs just before rendering inside an <iframe>.
+ * The returned blob URL is valid for the lifetime of the current page.
+ */
+function dataUrlToBlobUrl(dataUrl: string): string {
+  const [header, base64] = dataUrl.split(",");
+  const mime = header.match(/:(.*?);/)?.[1] ?? "application/octet-stream";
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: mime }));
 }
 
 function TypeIcon({ type }: { type: AttachmentType }) {
@@ -141,6 +158,8 @@ export function AttachmentViewStrip({ attachments }: Props) {
   // Document/PDF in-app viewer
   const [docViewerSrc, setDocViewerSrc] = useState<string | null>(null);
   const [docViewerName, setDocViewerName] = useState<string>("");
+  // Track the temporary blob URL we create for iframe rendering so we can revoke it on close
+  const docBlobUrlRef = useRef<string | null>(null);
   // Brief feedback when a video has no URL at all
   const [noUrlFeedback, setNoUrlFeedback] = useState(false);
 
@@ -152,8 +171,32 @@ export function AttachmentViewStrip({ attachments }: Props) {
   }
 
   function openDocViewer(att: AttachmentMeta) {
-    const src = att.url ?? att.localPreviewUrl;
-    if (src) { setDocViewerSrc(src); setDocViewerName(att.name); }
+    const stored = att.url ?? att.localPreviewUrl;
+    if (!stored) return;
+    // Revoke any previously created blob URL (memory hygiene)
+    if (docBlobUrlRef.current) {
+      URL.revokeObjectURL(docBlobUrlRef.current);
+      docBlobUrlRef.current = null;
+    }
+    // Browsers block data: URLs as iframe src (Chrome 60+ security policy).
+    // Convert the stored data URL back to a temporary blob URL for the iframe.
+    // If the source is already a server URL or blob URL, use it as-is.
+    if (stored.startsWith("data:")) {
+      const blobUrl = dataUrlToBlobUrl(stored);
+      docBlobUrlRef.current = blobUrl;
+      setDocViewerSrc(blobUrl);
+    } else {
+      setDocViewerSrc(stored);
+    }
+    setDocViewerName(att.name);
+  }
+
+  function closeDocViewer() {
+    if (docBlobUrlRef.current) {
+      URL.revokeObjectURL(docBlobUrlRef.current);
+      docBlobUrlRef.current = null;
+    }
+    setDocViewerSrc(null);
   }
 
   function openExternal(att: AttachmentMeta) {
@@ -328,7 +371,7 @@ export function AttachmentViewStrip({ attachments }: Props) {
       {docViewerSrc && (
         <div
           className="fixed inset-0 z-[999] bg-black/80 flex items-center justify-center"
-          onClick={() => setDocViewerSrc(null)}
+          onClick={closeDocViewer}
         >
           <div
             className="relative w-[90vw] h-[90vh] bg-white rounded-lg overflow-hidden shadow-2xl flex flex-col"
@@ -348,7 +391,7 @@ export function AttachmentViewStrip({ attachments }: Props) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setDocViewerSrc(null)}
+                  onClick={closeDocViewer}
                   className="text-gray-300 hover:text-white transition-colors p-1 rounded"
                   title="关闭"
                 >
@@ -356,7 +399,7 @@ export function AttachmentViewStrip({ attachments }: Props) {
                 </button>
               </div>
             </div>
-            {/* iframe — browser renders PDF natively; other types trigger download */}
+            {/* iframe — blob URL (converted from data URL) so browser renders PDF natively */}
             <iframe
               src={docViewerSrc}
               className="flex-1 w-full border-none"
