@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { OperationStep } from "@/types/ontologyModules";
 import { ItemField } from "./ItemField";
 import { AttachmentArea } from "./AttachmentArea";
+import { AttachmentViewStrip } from "./AttachmentViewStrip";
 import { AttributeTagRow } from "./AttributeTagRow";
 
 // ---------------------------------------------------------------------------
@@ -200,9 +201,7 @@ export function OperationStepViewCard({
           </button>
         )}
 
-        {(step.attachments?.length ?? 0) > 0 && (
-          <span className="text-[10px] text-gray-300">{step.attachments!.length} 个附件</span>
-        )}
+        <AttachmentViewStrip attachments={step.attachments ?? []} />
       </div>
     </div>
   );

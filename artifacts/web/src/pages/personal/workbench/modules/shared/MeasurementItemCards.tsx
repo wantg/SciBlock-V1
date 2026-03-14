@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { MeasurementItem } from "@/types/ontologyModules";
 import { ItemField } from "./ItemField";
 import { AttachmentArea } from "./AttachmentArea";
+import { AttachmentViewStrip } from "./AttachmentViewStrip";
 import { AttributeTagRow } from "./AttributeTagRow";
 
 // ---------------------------------------------------------------------------
@@ -225,11 +226,7 @@ export function MeasurementItemViewCard({
         valuePlaceholder="值"
       />
 
-      {(item.attachments?.length ?? 0) > 0 && (
-        <span className="text-[10px] text-gray-300">
-          {item.attachments!.length} 个附件
-        </span>
-      )}
+      <AttachmentViewStrip attachments={item.attachments ?? []} />
     </div>
   );
 }

@@ -17,6 +17,7 @@ import type { PrepItem } from "@/types/ontologyModules";
 import { PREP_CATEGORY } from "@/config/ontologyOptions";
 import { ItemField } from "./ItemField";
 import { AttachmentArea } from "./AttachmentArea";
+import { AttachmentViewStrip } from "./AttachmentViewStrip";
 import { AttributeTagRow } from "./AttributeTagRow";
 import { OntologyPicker } from "./OntologyPicker";
 
@@ -209,9 +210,9 @@ export function PrepItemViewCard({
         </button>
       )}
 
-      {showAttachments && (item.attachments?.length ?? 0) > 0 && (
-        <div className="px-3 pb-2 text-[10px] text-gray-300">
-          {item.attachments!.length} 个附件
+      {showAttachments && (
+        <div className="px-3 pb-2">
+          <AttachmentViewStrip attachments={item.attachments ?? []} />
         </div>
       )}
     </div>

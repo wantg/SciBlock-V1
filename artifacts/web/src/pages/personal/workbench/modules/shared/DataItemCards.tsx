@@ -9,8 +9,8 @@
  */
 
 import React from "react";
-import { Check, X } from "lucide-react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Check, X, Pencil, Trash2 } from "lucide-react";
+import { AttachmentViewStrip } from "./AttachmentViewStrip";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { DataItem } from "@/types/ontologyModules";
@@ -186,11 +186,9 @@ export function DataItemViewCard({
         </button>
       )}
 
-      {(item.attachments?.length ?? 0) > 0 && (
-        <div className="px-3 pb-2 text-[10px] text-gray-300">
-          {item.attachments!.length} 个附件
-        </div>
-      )}
+      <div className="px-3 pb-2">
+        <AttachmentViewStrip attachments={item.attachments ?? []} />
+      </div>
     </div>
   );
 }
