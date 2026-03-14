@@ -3,24 +3,19 @@ import { useParams } from "wouter";
 import { FlaskConical } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSciNoteStore } from "@/contexts/SciNoteStoreContext";
+import { useTrash } from "@/contexts/TrashContext";
 import { WorkbenchProvider, useWorkbench } from "@/contexts/WorkbenchContext";
 import { WorkbenchLayout } from "./WorkbenchLayout";
 
 // ---------------------------------------------------------------------------
-// Inner layout — runs inside WorkbenchProvider so it can read current title
+// Inner layout — runs inside WorkbenchProvider to read the live title
 // ---------------------------------------------------------------------------
 
-interface InnerProps {
-  sciNoteTitle: string;
-}
-
 /**
- * WorkbenchAppLayout — renders AppLayout with a title that reflects the
- * current experiment record's title in real time.
- *
- * Must be a child of WorkbenchProvider to access useWorkbench().
+ * WorkbenchAppLayout — reads current record title from WorkbenchContext
+ * and forwards it to AppLayout's title prop in real time.
  */
-function WorkbenchAppLayout({ sciNoteTitle }: InnerProps) {
+function WorkbenchAppLayout() {
   const { currentRecord } = useWorkbench();
   const pageTitle = currentRecord.title.trim() || "实验记录";
 
@@ -32,21 +27,22 @@ function WorkbenchAppLayout({ sciNoteTitle }: InnerProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Page — thin wrapper, mounts provider, delegates everything else
+// Page entry point
 // ---------------------------------------------------------------------------
 
 /**
- * ExperimentWorkbenchPage — route entry point.
- *
- * Route: /personal/experiment/:id/workbench
+ * ExperimentWorkbenchPage — route /personal/experiment/:id/workbench
  *
  * WorkbenchProvider is mounted *outside* AppLayout so that WorkbenchAppLayout
- * (inside the provider) can read the live record title and pass it to AppLayout.
- * key={id} ensures the provider re-mounts when navigating to a different SciNote.
+ * (inside the provider) can read the live record title.
+ *
+ * key={id} ensures the provider re-mounts when navigating between SciNotes.
+ * extraRecords seeds any records previously restored from the trash this session.
  */
 export function ExperimentWorkbenchPage() {
   const { id } = useParams<{ id: string }>();
   const { notes } = useSciNoteStore();
+  const { getRestoredForSciNote } = useTrash();
 
   const note = notes.find((n) => n.id === id);
 
@@ -61,9 +57,16 @@ export function ExperimentWorkbenchPage() {
     );
   }
 
+  const extraRecords = getRestoredForSciNote(id);
+
   return (
-    <WorkbenchProvider key={id} sciNoteId={id}>
-      <WorkbenchAppLayout sciNoteTitle={note.title} />
+    <WorkbenchProvider
+      key={id}
+      sciNoteId={id}
+      sciNoteTitle={note.title}
+      extraRecords={extraRecords}
+    >
+      <WorkbenchAppLayout />
     </WorkbenchProvider>
   );
 }

@@ -24,6 +24,7 @@ import {
   mockPurposeAssist,
   generateFlowDraft,
 } from "@/data/workbenchUtils";
+import { useTrash } from "@/contexts/TrashContext";
 
 // ---------------------------------------------------------------------------
 // Context shape
@@ -44,7 +45,8 @@ interface WorkbenchContextValue {
   // Record mutations
   switchRecord: (recordId: string) => void;
   createNewRecord: () => void;
-  deleteRecord: (recordId: string) => void;
+  /** Move an unconfirmed record to the global trash (soft-delete). */
+  moveToTrash: (recordId: string) => void;
   updateTitle: (title: string) => void;
   updateStatus: (status: ExperimentStatus) => void;
   updateExperimentCode: (code: string) => void;
@@ -96,15 +98,27 @@ export function useWorkbench(): WorkbenchContextValue {
 
 interface Props {
   sciNoteId: string;
+  /** Display title of the parent SciNote — stored in DeletedRecord on trash. */
+  sciNoteTitle: string;
+  /** Extra records to seed (e.g. ones previously restored from trash). */
+  extraRecords?: ExperimentRecord[];
   children: React.ReactNode;
 }
 
-export function WorkbenchProvider({ sciNoteId, children }: Props) {
-  // Seed one initial record for this sciNote.
+export function WorkbenchProvider({
+  sciNoteId,
+  sciNoteTitle,
+  extraRecords = [],
+  children,
+}: Props) {
+  const trash = useTrash();
+
+  // Seed one initial record + any restored records for this sciNote.
   const [ontologyVersions] = useState<OntologyVersion[]>(SEED_ONTOLOGY_VERSIONS);
 
   const [records, setRecords] = useState<ExperimentRecord[]>(() => [
     createExperimentRecord(sciNoteId, DEFAULT_ONTOLOGY_VERSION, 1),
+    ...extraRecords,
   ]);
   const [currentRecordId, setCurrentRecordId] = useState<string>(
     () => records[0].id,
@@ -169,12 +183,14 @@ export function WorkbenchProvider({ sciNoteId, children }: Props) {
     }
   }
 
-  function deleteRecord(recordId: string) {
-    // Safety: never delete the last remaining record
+  function moveToTrash(recordId: string) {
+    // Guard 1: never trash the last remaining record
     if (records.length <= 1) return;
 
     const idx = records.findIndex((r) => r.id === recordId);
     if (idx === -1) return;
+
+    const record = records[idx];
 
     // Switch to adjacent record before removal
     const nextRecord = idx > 0 ? records[idx - 1] : records[idx + 1];
@@ -182,7 +198,11 @@ export function WorkbenchProvider({ sciNoteId, children }: Props) {
     setFlowDraftInserted(false);
     setAiAssistOpen(false);
 
+    // Remove from local active list
     setRecords((prev) => prev.filter((r) => r.id !== recordId));
+
+    // Soft-delete: store in global trash (ontologyVersions untouched)
+    trash.moveToTrash(record, sciNoteId, sciNoteTitle);
   }
 
   function createNewRecord() {
@@ -321,7 +341,7 @@ export function WorkbenchProvider({ sciNoteId, children }: Props) {
     setActiveModuleKey,
     switchRecord,
     createNewRecord,
-    deleteRecord,
+    moveToTrash,
     updateTitle,
     updateStatus,
     updateExperimentCode,

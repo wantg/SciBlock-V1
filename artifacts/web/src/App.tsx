@@ -12,6 +12,7 @@ import { ReinitializeExperimentPage } from "@/pages/personal/ReinitializeExperim
 import { SciNoteDetailPage } from "@/pages/personal/SciNoteDetailPage";
 import { ExperimentDetailPage } from "@/pages/personal/ExperimentDetailPage";
 import { ExperimentWorkbenchPage } from "@/pages/personal/workbench/ExperimentWorkbenchPage";
+import { TrashPage } from "@/pages/personal/trash/TrashPage";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,8 @@ function AuthenticatedRouter() {
         <Route path="/personal/experiment/:id" component={ExperimentDetailPage} />
         {/* Placeholder SciNotes — legacy stub */}
         <Route path="/personal/note/:id" component={SciNoteDetailPage} />
+        {/* Trash — soft-deleted experiment records */}
+        <Route path="/personal/trash" component={TrashPage} />
         <Route path="/">
           {() => {
             window.location.replace(

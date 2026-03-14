@@ -85,7 +85,7 @@ function PortalMenu({
           className="flex items-center gap-2 w-full px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors text-left"
         >
           <Trash2 size={12} />
-          删除记录
+          移入回收站
         </button>
       ) : (
         <div className="px-3 py-2.5">
@@ -206,15 +206,15 @@ function RecordTab({
 // ---------------------------------------------------------------------------
 
 export function RecordSwitcher() {
-  const { records, currentRecord, switchRecord, createNewRecord, deleteRecord } =
+  const { records, currentRecord, switchRecord, createNewRecord, moveToTrash } =
     useWorkbench();
 
-  const [pendingDelete, setPendingDelete] = useState<ExperimentRecord | null>(null);
+  const [pendingTrash, setPendingTrash] = useState<ExperimentRecord | null>(null);
 
-  function handleConfirmDelete() {
-    if (!pendingDelete) return;
-    deleteRecord(pendingDelete.id);
-    setPendingDelete(null);
+  function handleConfirmTrash() {
+    if (!pendingTrash) return;
+    moveToTrash(pendingTrash.id);
+    setPendingTrash(null);
   }
 
   const isOnlyRecord = records.length === 1;
@@ -222,8 +222,8 @@ export function RecordSwitcher() {
   return (
     <>
       {/*
-        NOTE: overflow-x:auto clips overflow-y as well (CSS spec).
-        The dropdown MUST NOT live inside this div — it uses createPortal instead.
+        NOTE: overflow-x:auto clips overflow-y (CSS spec).
+        The dropdown uses createPortal to escape both overflow contexts.
       */}
       <div className="flex-shrink-0 flex items-center border-b border-gray-100 bg-gray-50 overflow-x-auto">
         {records.map((rec, i) => (
@@ -234,7 +234,7 @@ export function RecordSwitcher() {
             isActive={rec.id === currentRecord.id}
             isOnlyRecord={isOnlyRecord}
             onSelect={() => switchRecord(rec.id)}
-            onDelete={setPendingDelete}
+            onDelete={setPendingTrash}
           />
         ))}
 
@@ -249,14 +249,14 @@ export function RecordSwitcher() {
       </div>
 
       <ConfirmDialog
-        open={pendingDelete !== null}
+        open={pendingTrash !== null}
         danger
-        title="删除实验记录"
-        description={`确认删除"${pendingDelete?.title.trim() || "未命名实验"}"？删除后该记录不可恢复，本体信息传承链不受影响。`}
-        confirmLabel="删除"
+        title="移入回收站"
+        description={`"${pendingTrash?.title.trim() || "未命名实验"}"将被移入回收站。你可以在回收站中恢复或永久删除它，本体信息传承链不受影响。`}
+        confirmLabel="移入回收站"
         cancelLabel="取消"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setPendingDelete(null)}
+        onConfirm={handleConfirmTrash}
+        onCancel={() => setPendingTrash(null)}
       />
     </>
   );

@@ -1,10 +1,11 @@
 import React from "react";
 import { useLocation, Link } from "wouter";
-import { LayoutGrid, Plus, BookOpen } from "lucide-react";
+import { LayoutGrid, Plus, BookOpen, Trash2 } from "lucide-react";
 import { TOP_NAV, NAV_GROUPS } from "@/config/navigation";
 import { useSciNoteStore } from "@/contexts/SciNoteStoreContext";
 import { useNewExperimentDraft } from "@/contexts/NewExperimentDraftContext";
 import { useSciNoteActions } from "@/hooks/useSciNoteActions";
+import { useTrash } from "@/contexts/TrashContext";
 import { NavLink } from "./NavLink";
 import { SciNoteRow } from "./SciNoteRow";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -40,6 +41,10 @@ export function AppSidebar() {
   const { notes } = useSciNoteStore();
   const { draftName } = useNewExperimentDraft();
   const actions = useSciNoteActions();
+  const { trashedRecords } = useTrash();
+
+  const trashCount = trashedRecords.length;
+  const trashActive = location === "/personal/trash";
 
   const draftItem: NavItem | null =
     draftName !== null
@@ -103,6 +108,29 @@ export function AppSidebar() {
                     />
                   );
                 })}
+
+              {/* Trash — at the bottom of the 个人 section */}
+              {group.title === "个人" && (
+                <Link
+                  href="/personal/trash"
+                  className={[
+                    "flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-colors",
+                    trashActive
+                      ? "bg-gray-100 text-gray-900 font-medium"
+                      : "text-gray-400 hover:bg-gray-50 hover:text-gray-600",
+                  ].join(" ")}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Trash2 size={15} className="flex-shrink-0" />
+                    回收站
+                  </span>
+                  {trashCount > 0 && (
+                    <span className="text-[10px] bg-gray-200 text-gray-500 rounded-full px-1.5 py-0.5 font-medium leading-none">
+                      {trashCount}
+                    </span>
+                  )}
+                </Link>
+              )}
 
               {/* Other groups (团队, etc.) */}
               {group.title !== "个人" &&
