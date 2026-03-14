@@ -20,6 +20,7 @@ import type { SystemObject } from "@/types/ontologyModules";
 import { SYSTEM_ROLE } from "@/config/ontologyOptions";
 import { ItemField } from "./shared/ItemField";
 import { AttachmentArea } from "./shared/AttachmentArea";
+import { AttachmentViewStrip } from "./shared/AttachmentViewStrip";
 import { AttributeTagRow } from "./shared/AttributeTagRow";
 import { OntologyPicker } from "./shared/OntologyPicker";
 
@@ -209,12 +210,10 @@ function SystemObjectViewCard({ object, onEdit, onDelete, onUpdate }: ViewCardPr
         </button>
       ) : null}
 
-      {/* Attachment count hint */}
-      {(object.attachments?.length ?? 0) > 0 && (
-        <div className="px-3 pb-2 text-[10px] text-gray-300">
-          {object.attachments!.length} 个附件
-        </div>
-      )}
+      {/* Attachment strip — collapsible, replaces old plain-text "N 个附件" */}
+      <div className="px-3 pb-2">
+        <AttachmentViewStrip attachments={object.attachments ?? []} />
+      </div>
     </div>
   );
 }
