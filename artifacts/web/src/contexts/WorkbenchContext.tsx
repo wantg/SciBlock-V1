@@ -25,6 +25,10 @@ import {
   mockPurposeAssist,
   generateFlowDraft,
 } from "@/data/workbenchUtils";
+import {
+  loadWorkbenchRecords,
+  saveWorkbenchRecords,
+} from "@/data/workbenchStorage";
 import { useTrash } from "@/contexts/TrashContext";
 
 // ---------------------------------------------------------------------------
@@ -82,32 +86,6 @@ interface WorkbenchContextValue {
 }
 
 // ---------------------------------------------------------------------------
-// sessionStorage helpers — persist records between route unmounts/remounts
-// ---------------------------------------------------------------------------
-
-const storageKey = (sciNoteId: string) => `sciblock:workbench:${sciNoteId}`;
-
-function loadPersistedRecords(sciNoteId: string): ExperimentRecord[] {
-  try {
-    const raw = sessionStorage.getItem(storageKey(sciNoteId));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed as ExperimentRecord[];
-  } catch {
-    return [];
-  }
-}
-
-function savePersistedRecords(sciNoteId: string, records: ExperimentRecord[]) {
-  try {
-    sessionStorage.setItem(storageKey(sciNoteId), JSON.stringify(records));
-  } catch {
-    // sessionStorage may be unavailable (private mode quota exceeded etc.)
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
 
@@ -158,7 +136,7 @@ export function WorkbenchProvider({
    *     data to avoid displacing records the user already created.
    */
   const [records, setRecords] = useState<ExperimentRecord[]>(() => {
-    const persisted = loadPersistedRecords(sciNoteId);
+    const persisted = loadWorkbenchRecords(sciNoteId);
 
     if (persisted.length > 0) {
       // --- Case A: returning visit — use persisted records as the base ---
@@ -182,7 +160,7 @@ export function WorkbenchProvider({
   // Persist records to sessionStorage whenever they change so that navigating
   // away and back does NOT lose records the user created in this session.
   useEffect(() => {
-    savePersistedRecords(sciNoteId, records);
+    saveWorkbenchRecords(sciNoteId, records);
   }, [sciNoteId, records]);
 
   const [currentRecordId, setCurrentRecordId] = useState<string>(

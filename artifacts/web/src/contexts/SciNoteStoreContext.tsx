@@ -1,8 +1,20 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import type { SciNote } from "@/types/scinote";
 import type { WizardFormData } from "@/types/wizardForm";
 import { getExperimentName } from "@/types/experimentFields";
-import { PLACEHOLDER_SCINOTES } from "@/data/scinotes";
+import { loadSciNotes, saveSciNotes } from "@/data/scinoteStorage";
+import { clearWorkbenchRecords } from "@/data/workbenchStorage";
+
+/**
+ * SciNoteStoreContext — manages the personal SciNote list.
+ *
+ * Persistence:  SciNote list → localStorage via scinoteStorage (survives refresh).
+ * Cleanup hook: deleteSciNote also clears workbench sessionStorage for the
+ *               deleted note so orphaned records don't accumulate.
+ *
+ * Dependency rule: this context imports from data/ only.
+ *                  It must NOT import from WorkbenchContext or TrashContext.
+ */
 
 interface SciNoteStoreContextValue {
   notes: SciNote[];
@@ -18,14 +30,26 @@ interface SciNoteStoreContextValue {
    * The note's id, title, kind, and createdAt are all preserved.
    */
   reinitializeSciNote: (id: string, newFormData: WizardFormData) => void;
-  /** Permanently remove a SciNote from the list. */
+  /** Permanently remove a SciNote and clean up its workbench records. */
   deleteSciNote: (id: string) => void;
 }
 
 const SciNoteStoreContext = createContext<SciNoteStoreContextValue | null>(null);
 
 export function SciNoteStoreProvider({ children }: { children: React.ReactNode }) {
-  const [notes, setNotes] = useState<SciNote[]>(PLACEHOLDER_SCINOTES);
+  /**
+   * Load initial notes from localStorage on first mount.
+   * Falls back to PLACEHOLDER_SCINOTES when no saved data exists.
+   */
+  const [notes, setNotes] = useState<SciNote[]>(loadSciNotes);
+
+  /**
+   * Persist the SciNote list to localStorage whenever it changes.
+   * This is the only write path — all mutations go through setNotes.
+   */
+  useEffect(() => {
+    saveSciNotes(notes);
+  }, [notes]);
 
   function createSciNote(formData: WizardFormData): string {
     const id = `exp-${Date.now()}`;
@@ -52,9 +76,7 @@ export function SciNoteStoreProvider({ children }: { children: React.ReactNode }
         n.id === id
           ? {
               ...n,
-              // Preserve identity fields; replace only the wizard content.
               formData: newFormData,
-              // Always keep kind as "wizard" after reinit.
               kind: "wizard",
             }
           : n,
@@ -63,7 +85,12 @@ export function SciNoteStoreProvider({ children }: { children: React.ReactNode }
   }
 
   function deleteSciNote(id: string) {
+    // Remove the SciNote from the list (triggers persistence via useEffect).
     setNotes((prev) => prev.filter((n) => n.id !== id));
+    // Clean up the orphaned workbench session data for this SciNote.
+    // This call is safe here: clearWorkbenchRecords is a pure data-layer
+    // function — it does not import any context or React code.
+    clearWorkbenchRecords(id);
   }
 
   return (
