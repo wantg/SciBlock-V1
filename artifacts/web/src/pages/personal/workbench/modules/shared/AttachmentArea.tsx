@@ -67,11 +67,17 @@ export function AttachmentArea({ attachments, onChange }: Props) {
     const newItems: AttachmentMeta[] = [];
     for (const file of Array.from(files)) {
       const type = detectType(file);
+      // All file types get a blob URL so they can be opened locally:
+      //   image   → lightbox preview
+      //   video   → window.open → browser native video player
+      //   pdf     → window.open → browser PDF viewer
+      //   other   → window.open → browser downloads (no server needed)
+      // When real upload infra lands, replace this with the returned server URL.
       newItems.push({
         id: makeId(),
         name: file.name,
         type,
-        localPreviewUrl: type === "image" ? URL.createObjectURL(file) : undefined,
+        localPreviewUrl: URL.createObjectURL(file),
         size: file.size,
         uploadedAt: new Date().toISOString(),
       });
