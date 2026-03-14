@@ -21,13 +21,21 @@ src/
 ├── types/                  # Shared TypeScript interfaces
 │   ├── auth.ts             # User, LoginRequest, LoginResponse
 │   ├── scinote.ts          # SciNote (id, title, kind, createdAt, formData, experimentType?, objective?)
-│   └── wizardForm.ts       # WizardFormData (step2–step6 data shapes)
+│   ├── wizardForm.ts       # WizardFormData (step2–step6 data shapes)
+│   ├── messages.ts         # Message, MessageType, MessageStatus, InvitationMeta, CommentMeta, ShareRequestMeta
+│   ├── aiChat.ts           # ChatMessage, ChatState, AiChatRequest/Response
+│   └── calendarPanel.ts    # CalendarRecord, DateRecordMap
 ├── api/                    # All HTTP calls (one file per domain)
 │   ├── client.ts           # apiFetch() base wrapper + ApiError class
-│   └── auth.ts             # login()
+│   ├── auth.ts             # login()
+│   ├── messages.ts         # fetchMessages, markMessageRead, performMessageAction, deleteMessage
+│   ├── aiChat.ts           # sendChatMessage (calls /api/ai/chat)
+│   └── calendarRecords.ts  # loadAllCalendarRecords (sessionStorage scan)
 ├── contexts/               # React contexts (single source of truth for shared state)
 │   ├── SciNoteStoreContext.tsx       # Mutable list of SciNotes; createSciNote() adds new ones
-│   └── NewExperimentDraftContext.tsx # Live draft name during /personal/new-experiment
+│   ├── NewExperimentDraftContext.tsx # Live draft name during /personal/new-experiment
+│   ├── MessagesContext.tsx           # Messages list + unread count + CRUD actions
+│   └── UserContext.tsx               # Logged-in user (reads localStorage:sciblock:currentUser)
 ├── hooks/                  # Business logic hooks (no UI)
 │   ├── useLogin.ts         # Login form state, validation, submission
 │   ├── useWizardForm.ts    # Wizard form state + populateFromAI + canFinish

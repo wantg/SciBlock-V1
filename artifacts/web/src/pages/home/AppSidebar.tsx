@@ -6,6 +6,7 @@ import { useSciNoteStore } from "@/contexts/SciNoteStoreContext";
 import { useNewExperimentDraft } from "@/contexts/NewExperimentDraftContext";
 import { useSciNoteActions } from "@/hooks/useSciNoteActions";
 import { useTrash } from "@/contexts/TrashContext";
+import { useMessages } from "@/contexts/MessagesContext";
 import { NavLink } from "./NavLink";
 import { SciNoteRow } from "./SciNoteRow";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -43,6 +44,7 @@ export function AppSidebar() {
   const actions = useSciNoteActions();
   const { trashedRecords } = useTrash();
 
+  const { unreadCount } = useMessages();
   const trashCount = trashedRecords.length;
   const trashActive = location === "/personal/trash";
 
@@ -68,7 +70,12 @@ export function AppSidebar() {
       {/* Top-level flat nav */}
       <nav className="px-2 flex flex-col gap-0.5">
         {TOP_NAV.map((item) => (
-          <NavLink key={item.href} item={item} active={location === item.href} />
+          <NavLink
+            key={item.href}
+            item={item}
+            active={location === item.href}
+            badge={item.href === "/home/messages" ? unreadCount : undefined}
+          />
         ))}
       </nav>
 

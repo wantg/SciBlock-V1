@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import { LoginPage } from "@/pages/login/LoginPage";
 import { RequestAccessPage } from "@/pages/RequestAccessPage";
 import { HomePage } from "@/pages/HomePage";
+import { MessagesPage } from "@/pages/messages/MessagesPage";
 import { NewExperimentPage } from "@/pages/personal/NewExperimentPage";
 import { ReinitializeExperimentPage } from "@/pages/personal/ReinitializeExperimentPage";
 import { SciNoteDetailPage } from "@/pages/personal/SciNoteDetailPage";
@@ -25,6 +26,8 @@ function AuthenticatedRouter() {
     <AuthenticatedLayout>
       <Switch>
         <Route path="/home" component={HomePage} />
+        {/* Messages inbox */}
+        <Route path="/home/messages" component={MessagesPage} />
         <Route path="/personal/new-experiment" component={NewExperimentPage} />
         {/* Reinitialize wizard for an existing SciNote */}
         <Route path="/personal/reinitialize/:id" component={ReinitializeExperimentPage} />

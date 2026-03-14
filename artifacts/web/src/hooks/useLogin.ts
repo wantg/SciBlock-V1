@@ -3,6 +3,8 @@ import { useLocation } from "wouter";
 import { login } from "@/api/auth";
 import { ApiError } from "@/api/client";
 
+const USER_STORAGE_KEY = "sciblock:currentUser";
+
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -76,7 +78,13 @@ export function useLogin(): LoginFormState {
 
     setLoading(true);
     try {
-      await login({ email: email.trim(), password });
+      const result = await login({ email: email.trim(), password });
+      // Persist user info for MessagesContext and other authenticated features
+      try {
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(result.user));
+      } catch {
+        // ignore storage errors
+      }
       navigate("/home");
     } catch (err) {
       if (err instanceof ApiError) {
