@@ -3,18 +3,22 @@
  *
  * Architecture:
  *  - Items always visible (no module-level editing gate).
- *  - Each item is independently in view | editing | creating mode.
- *  - VIEW mode: role badge is clickable (enters edit); tag X removes directly;
- *    tag "+" input adds directly; clicking name or description enters edit.
+ *  - Each item independently in view | editing | creating mode.
+ *  - Attribute tags use the same TagBadge (key:value) as the wizard's ObjectItemCard.
+ *  - VIEW mode: click name/role/description → enters edit; TagBadge inline-edits directly;
+ *    "+" adds a new key:value tag without entering full edit.
  *  - EDIT mode: full card form with per-item save ✓ and cancel ✗.
- *  - CREATING: new blank card (same as edit, cancel = remove).
+ *  - CREATING: blank card (same as edit; cancel = remove).
  *  - All writes go immediately to onUpdate (no module-level draft).
  */
 
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { Pencil, Trash2, Check, X, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { TagBadge } from "@/components/ui/TagBadge";
+import type { Tag } from "@/types/experimentFields";
+import { makeTag } from "@/types/experimentFields";
 import type { SystemObject, AttachmentMeta } from "@/types/ontologyModules";
 import { ItemCard } from "./shared/ItemCard";
 import { ItemField } from "./shared/ItemField";
@@ -45,6 +49,121 @@ function makeBlankObject(): SystemObject {
 }
 
 // ---------------------------------------------------------------------------
+// AddTagInline — key:value inline add form (matches wizard ObjectItemCard style)
+// ---------------------------------------------------------------------------
+
+interface AddTagInlineProps {
+  onAdd: (tag: Tag) => void;
+  onCancel: () => void;
+}
+
+function AddTagInline({ onAdd, onCancel }: AddTagInlineProps) {
+  const [key, setKey] = useState("");
+  const [value, setValue] = useState("");
+
+  function confirm() {
+    const trimmedKey = key.trim();
+    if (!trimmedKey) { onCancel(); return; }
+    onAdd(makeTag(trimmedKey, value.trim()));
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") { e.preventDefault(); confirm(); }
+    if (e.key === "Escape") onCancel();
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">
+      <input
+        autoFocus
+        value={key}
+        onChange={(e) => setKey(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="标签类型"
+        className="w-14 text-xs bg-transparent outline-none text-blue-700 placeholder:text-blue-300"
+      />
+      <span className="text-blue-300 text-xs">:</span>
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="值"
+        className="w-14 text-xs bg-transparent outline-none text-blue-700 placeholder:text-blue-300"
+      />
+      <button
+        type="button"
+        onClick={confirm}
+        className="text-green-600 hover:text-green-700 flex-shrink-0"
+        title="确认"
+      >
+        <Check size={10} />
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+        title="取消"
+      >
+        <X size={10} />
+      </button>
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AttributeTagRow — shared tag row (TagBadge + add button)
+//   Used both in view cards and edit cards so the experience is identical.
+// ---------------------------------------------------------------------------
+
+interface AttributeTagRowProps {
+  tags: Tag[];
+  onChange: (tags: Tag[]) => void;
+}
+
+function AttributeTagRow({ tags, onChange }: AttributeTagRowProps) {
+  const [showAdd, setShowAdd] = useState(false);
+
+  function updateTag(id: string, updated: Tag) {
+    onChange(tags.map((t) => (t.id === id ? updated : t)));
+  }
+
+  function deleteTag(id: string) {
+    onChange(tags.filter((t) => t.id !== id));
+  }
+
+  function addTag(tag: Tag) {
+    onChange([...tags, tag]);
+    setShowAdd(false);
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5 items-center">
+      {tags.map((tag) => (
+        <TagBadge
+          key={tag.id}
+          tag={tag}
+          onUpdate={(updated) => updateTag(tag.id, updated)}
+          onDelete={() => deleteTag(tag.id)}
+        />
+      ))}
+
+      {showAdd ? (
+        <AddTagInline onAdd={addTag} onCancel={() => setShowAdd(false)} />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowAdd(true)}
+          className="inline-flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-150 rounded-full px-2 py-0.5 transition-colors"
+        >
+          <Plus size={10} />
+          标签
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // SystemObjectEditCard — full structured form for editing / creating an item
 // ---------------------------------------------------------------------------
 
@@ -56,21 +175,8 @@ interface EditCardProps {
 }
 
 function SystemObjectEditCard({ draft, onChange, onSave, onCancel }: EditCardProps) {
-  const [attrInput, setAttrInput] = useState("");
-
   function set<K extends keyof SystemObject>(key: K, value: SystemObject[K]) {
     onChange({ ...draft, [key]: value });
-  }
-
-  function addAttr() {
-    const trimmed = attrInput.trim();
-    if (!trimmed || draft.attributes.includes(trimmed)) return;
-    onChange({ ...draft, attributes: [...draft.attributes, trimmed] });
-    setAttrInput("");
-  }
-
-  function removeAttr(attr: string) {
-    onChange({ ...draft, attributes: draft.attributes.filter((a) => a !== attr) });
   }
 
   const canSave = draft.name.trim().length > 0;
@@ -136,49 +242,12 @@ function SystemObjectEditCard({ draft, onChange, onSave, onCancel }: EditCardPro
           </div>
         </ItemField>
 
-        {/* Attributes */}
-        <ItemField label="属性标签" hint="输入后按 Enter 添加；点击 × 删除">
-          <div className="flex flex-col gap-2">
-            {draft.attributes.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {draft.attributes.map((attr) => (
-                  <span
-                    key={attr}
-                    className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 border border-gray-200 rounded-full px-2.5 py-0.5"
-                  >
-                    {attr}
-                    <button
-                      type="button"
-                      onClick={() => removeAttr(attr)}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      <X size={10} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="flex items-center gap-1.5">
-              <Input
-                value={attrInput}
-                onChange={(e) => setAttrInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); addAttr(); }
-                  if (e.key === "Escape") setAttrInput("");
-                }}
-                placeholder="输入属性标签，如：4英寸"
-                className="h-7 text-xs flex-1"
-              />
-              <button
-                type="button"
-                onClick={addAttr}
-                disabled={!attrInput.trim()}
-                className="text-green-600 hover:text-green-700 disabled:opacity-30 transition-colors"
-              >
-                <Check size={14} />
-              </button>
-            </div>
-          </div>
+        {/* Attributes — same TagBadge as wizard */}
+        <ItemField label="属性标签" hint="点击标签可修改 key 或 value；回车确认">
+          <AttributeTagRow
+            tags={draft.attributes}
+            onChange={(tags) => set("attributes", tags)}
+          />
         </ItemField>
 
         {/* Description */}
@@ -203,34 +272,17 @@ function SystemObjectEditCard({ draft, onChange, onSave, onCancel }: EditCardPro
 }
 
 // ---------------------------------------------------------------------------
-// SystemObjectViewCard — read-only card with direct-action inline interactions
+// SystemObjectViewCard — compact card with direct tag interactions
 // ---------------------------------------------------------------------------
 
 interface ViewCardProps {
   object: SystemObject;
   onEdit: () => void;
   onDelete: () => void;
-  /** Direct update without entering full edit mode (role, tag changes). */
   onUpdate: (updated: SystemObject) => void;
 }
 
 function SystemObjectViewCard({ object, onEdit, onDelete, onUpdate }: ViewCardProps) {
-  const [addTagInput, setAddTagInput] = useState("");
-  const [showAddTag, setShowAddTag] = useState(false);
-  const addTagRef = useRef<HTMLInputElement>(null);
-
-  function removeAttr(attr: string) {
-    onUpdate({ ...object, attributes: object.attributes.filter((a) => a !== attr) });
-  }
-
-  function addAttr() {
-    const trimmed = addTagInput.trim();
-    if (!trimmed || object.attributes.includes(trimmed)) return;
-    onUpdate({ ...object, attributes: [...object.attributes, trimmed] });
-    setAddTagInput("");
-    setShowAddTag(false);
-  }
-
   const roleColor = ROLE_COLORS[object.role] ?? "bg-gray-100 text-gray-500 border-gray-200";
 
   return (
@@ -246,7 +298,6 @@ function SystemObjectViewCard({ object, onEdit, onDelete, onUpdate }: ViewCardPr
           >
             {object.name || <span className="text-gray-300 font-normal italic">未命名对象</span>}
           </button>
-          {/* Role badge — click to enter edit mode */}
           <button
             type="button"
             onClick={onEdit}
@@ -279,55 +330,12 @@ function SystemObjectViewCard({ object, onEdit, onDelete, onUpdate }: ViewCardPr
         </div>
       </div>
 
-      {/* Attributes + add tag */}
-      <div className="px-3 pb-2 flex flex-wrap gap-1.5 items-center">
-        {object.attributes.map((attr) => (
-          <span
-            key={attr}
-            className="inline-flex items-center gap-0.5 text-[11px] bg-gray-50 text-gray-500 border border-gray-200 rounded-full px-2 py-0.5"
-          >
-            {attr}
-            <button
-              type="button"
-              onClick={() => removeAttr(attr)}
-              className="text-gray-300 hover:text-red-500 transition-colors leading-none ml-0.5"
-            >
-              <X size={10} />
-            </button>
-          </span>
-        ))}
-
-        {showAddTag ? (
-          <div className="flex items-center gap-1">
-            <Input
-              ref={addTagRef}
-              autoFocus
-              value={addTagInput}
-              onChange={(e) => setAddTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") { e.preventDefault(); addAttr(); }
-                if (e.key === "Escape") { setAddTagInput(""); setShowAddTag(false); }
-              }}
-              onBlur={() => { if (!addTagInput.trim()) setShowAddTag(false); }}
-              placeholder="添加标签…"
-              className="h-6 text-xs w-24 px-1.5"
-            />
-            <button type="button" onClick={addAttr} className="text-green-600 hover:text-green-700">
-              <Check size={12} />
-            </button>
-            <button type="button" onClick={() => { setAddTagInput(""); setShowAddTag(false); }} className="text-gray-400">
-              <X size={12} />
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowAddTag(true)}
-            className="inline-flex items-center gap-0.5 text-[11px] text-gray-300 border border-dashed border-gray-200 rounded-full px-2 py-0.5 hover:text-gray-500 hover:border-gray-400 transition-colors"
-          >
-            <Plus size={10} /> 添加
-          </button>
-        )}
+      {/* Attributes — TagBadge directly editable without entering full edit mode */}
+      <div className="px-3 pb-2">
+        <AttributeTagRow
+          tags={object.attributes}
+          onChange={(tags) => onUpdate({ ...object, attributes: tags })}
+        />
       </div>
 
       {/* Description — click to edit */}

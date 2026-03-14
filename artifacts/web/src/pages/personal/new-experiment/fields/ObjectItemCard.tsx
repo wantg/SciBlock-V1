@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { X, Plus, Check, Tag as TagIcon } from "lucide-react";
 import type { ObjectItem, Tag } from "@/types/experimentFields";
 import { makeTag } from "@/types/experimentFields";
-import { TagBadge } from "./TagBadge";
+import { TagBadge } from "@/components/ui/TagBadge";
 
 interface Props {
   item: ObjectItem;

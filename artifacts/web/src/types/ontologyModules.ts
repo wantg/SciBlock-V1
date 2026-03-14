@@ -7,6 +7,9 @@
  *  - WorkbenchContext references OntologyModuleStructuredData through workbench types.
  */
 
+import type { Tag } from "@/types/experimentFields";
+export type { Tag };
+
 // ---------------------------------------------------------------------------
 // Attachment — per-item evidence / file metadata
 // ---------------------------------------------------------------------------
@@ -34,8 +37,8 @@ export interface SystemObject {
   name: string;
   /** Role label (e.g. "研究基底" | "靶材" | "设备") */
   role: string;
-  /** Short attribute chips (e.g. ["4英寸", "1–10 Ω·cm"]) */
-  attributes: string[];
+  /** Structured key:value attribute tags (e.g. [{key:"尺寸", value:"4英寸"}]) */
+  attributes: Tag[];
   description?: string;
   attachments?: AttachmentMeta[];
 }

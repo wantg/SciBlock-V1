@@ -47,15 +47,15 @@ export function SystemModuleView({ objects, onAdd }: Props) {
             </span>
           </div>
 
-          {/* Attribute chips */}
+          {/* Attribute chips — key:value tags */}
           {obj.attributes.length > 0 && (
             <div className="flex flex-wrap gap-1">
-              {obj.attributes.map((attr) => (
+              {obj.attributes.map((tag) => (
                 <span
-                  key={attr}
+                  key={tag.id}
                   className="text-[11px] bg-gray-50 text-gray-500 border border-gray-200 rounded-full px-2 py-0.5"
                 >
-                  {attr}
+                  {tag.value ? `${tag.key}: ${tag.value}` : tag.key}
                 </span>
               ))}
             </div>

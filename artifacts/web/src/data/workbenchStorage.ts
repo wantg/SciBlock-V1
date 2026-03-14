@@ -1,4 +1,52 @@
 import type { ExperimentRecord } from "@/types/workbench";
+import { makeTag } from "@/types/experimentFields";
+
+// ---------------------------------------------------------------------------
+// Migration helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert legacy string[] attributes to Tag[] on any SystemObject items.
+ * Runs once on load; no-op if the data is already in the new format.
+ */
+function migrateModule(mod: import("@/types/workbench").OntologyModule): import("@/types/workbench").OntologyModule {
+  const sd = mod.structuredData as Record<string, unknown> | undefined;
+  if (!sd?.systemObjects) return mod;
+
+  const objects = sd.systemObjects as Array<Record<string, unknown>>;
+  const needsMigration = objects.some(
+    (o) => Array.isArray(o.attributes) && o.attributes.length > 0 && typeof o.attributes[0] === "string",
+  );
+  if (!needsMigration) return mod;
+
+  const migratedObjects = objects.map((o) => {
+    if (!Array.isArray(o.attributes)) return o;
+    const attrs = (o.attributes as unknown[]).map((a) => {
+      if (typeof a !== "string") return a;
+      const colonIdx = a.indexOf(":");
+      if (colonIdx > 0 && colonIdx < a.length - 1) {
+        return makeTag(a.slice(0, colonIdx).trim(), a.slice(colonIdx + 1).trim());
+      }
+      return makeTag(a, "");
+    });
+    return { ...o, attributes: attrs };
+  });
+
+  return {
+    ...mod,
+    structuredData: {
+      ...sd,
+      systemObjects: migratedObjects as unknown as import("@/types/ontologyModules").SystemObject[],
+    },
+  };
+}
+
+function migrateRecord(record: ExperimentRecord): ExperimentRecord {
+  return {
+    ...record,
+    currentModules: record.currentModules.map(migrateModule),
+  };
+}
 
 /**
  * Persistence layer for workbench experiment records.
@@ -25,7 +73,7 @@ export function loadWorkbenchRecords(sciNoteId: string): ExperimentRecord[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed as ExperimentRecord[];
+    return (parsed as ExperimentRecord[]).map(migrateRecord);
   } catch {
     return [];
   }

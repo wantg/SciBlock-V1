@@ -6,6 +6,7 @@ import type {
   MeasurementItem,
   DataItem,
 } from "@/types/ontologyModules";
+import { makeTag } from "@/types/experimentFields";
 
 // ---------------------------------------------------------------------------
 // Structured mock data — one block per module
@@ -16,21 +17,32 @@ const SYSTEM_OBJECTS: SystemObject[] = [
     id: "sys-1",
     name: "Si(100) 基底",
     role: "研究基底",
-    attributes: ["4英寸", "1–10 Ω·cm", "100晶向"],
+    attributes: [
+      makeTag("尺寸", "4英寸"),
+      makeTag("电阻率", "1–10 Ω·cm"),
+      makeTag("晶向", "100"),
+    ],
     description: "P 型单晶硅片，用作 ZnO 薄膜沉积衬底",
   },
   {
     id: "sys-2",
     name: "ZnO 陶瓷靶",
     role: "靶材",
-    attributes: ["99.99% 纯度", "直径 3 英寸"],
+    attributes: [
+      makeTag("纯度", "99.99%"),
+      makeTag("直径", "3英寸"),
+    ],
     description: "RF 溅射靶材，提供 ZnO 沉积源",
   },
   {
     id: "sys-3",
     name: "RF 磁控溅射腔室",
     role: "设备",
-    attributes: ["本底真空 <5×10⁻⁶ Pa", "Ar/O₂ 气氛", "RF 150 W"],
+    attributes: [
+      makeTag("本底真空", "<5×10⁻⁶ Pa"),
+      makeTag("气氛", "Ar/O₂"),
+      makeTag("功率", "RF 150 W"),
+    ],
     description: "沉积腔室，控制气体流量、功率和基底温度",
   },
 ];
