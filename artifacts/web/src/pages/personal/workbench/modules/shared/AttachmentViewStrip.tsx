@@ -35,58 +35,11 @@ import {
   ExternalLink,
 } from "lucide-react";
 import type { AttachmentMeta, AttachmentType } from "@/types/ontologyModules";
-import { loadAttBlob } from "@/data/attachmentStorage";
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
-
-function formatSize(bytes?: number): string {
-  if (!bytes) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-/**
- * Convert a data URL (base64) to a temporary blob URL.
- *
- * Browsers block `data:` URLs as iframe src (Chrome 60+ security policy).
- * We store files as data URLs for sessionStorage persistence but must convert
- * them to blob URLs just before rendering inside an <iframe>.
- * Returns null on failure (malformed data URL, quota, etc.).
- */
-function dataUrlToBlobUrl(dataUrl: string): string | null {
-  try {
-    const commaIdx = dataUrl.indexOf(",");
-    if (commaIdx === -1) return null;
-    const header = dataUrl.slice(0, commaIdx);
-    const base64 = dataUrl.slice(commaIdx + 1);
-    const mime = header.match(/:(.*?);/)?.[1] ?? "application/octet-stream";
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return URL.createObjectURL(new Blob([bytes], { type: mime }));
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Resolve the best available URL for an attachment.
- * Priority: localPreviewUrl (in-memory data URL) → sessionStorage fallback → att.url (server).
- * Returns null when nothing is available.
- */
-function resolveAttachmentSrc(att: AttachmentMeta): string | null {
-  if (att.localPreviewUrl) return att.localPreviewUrl;
-  // Safety net: the strip/restore in workbenchStorage might have failed to
-  // put localPreviewUrl back into React state; try the raw sessionStorage key.
-  const stored = loadAttBlob(att.id);
-  if (stored) return stored;
-  // Fall back to server URL (available after real file upload infra is added).
-  if (att.url) return att.url;
-  return null;
-}
+import {
+  dataUrlToBlobUrl,
+  resolveAttachmentSrc,
+} from "@/data/attachmentStorage";
+import { formatSize } from "@/data/attachmentUtils";
 
 function TypeIcon({ type }: { type: AttachmentType }) {
   const cls = "w-3.5 h-3.5";
@@ -270,10 +223,7 @@ export function AttachmentViewStrip({ attachments }: Props) {
 
   /** Whether there is any preview URL available (in-memory, storage, or server). */
   function hasPreviewSource(att: AttachmentMeta): boolean {
-    if (att.localPreviewUrl) return true;
-    if (loadAttBlob(att.id)) return true;
-    if (att.url) return true;
-    return false;
+    return resolveAttachmentSrc(att) !== null;
   }
 
   return (

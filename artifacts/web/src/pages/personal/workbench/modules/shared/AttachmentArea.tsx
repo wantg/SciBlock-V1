@@ -1,27 +1,12 @@
 import React, { useRef } from "react";
 import { Paperclip, Image, Film, FileText, X } from "lucide-react";
 import type { AttachmentMeta, AttachmentType } from "@/types/ontologyModules";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function detectType(file: File): AttachmentType {
-  if (file.type.startsWith("image/")) return "image";
-  if (file.type.startsWith("video/")) return "video";
-  return "document";
-}
-
-function formatSize(bytes?: number): string {
-  if (!bytes) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function makeId(): string {
-  return `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
+import {
+  detectType,
+  formatSize,
+  makeAttId,
+  readFileAsDataUrl,
+} from "@/data/attachmentUtils";
 
 // ---------------------------------------------------------------------------
 // Type icon
@@ -44,30 +29,18 @@ interface Props {
 }
 
 /**
- * AttachmentArea — per-item attachment section rendered at the bottom of each
- * ontology item card during editing.
+ * AttachmentArea — per-item attachment section rendered inside ontology item
+ * edit cards.  Handles file upload only — viewing is handled by AttachmentViewStrip.
  *
  * Capabilities:
- *   - Upload any file via hidden <input type="file" multiple>
- *   - Images get a local blob preview URL (released on delete)
- *   - Each uploaded file creates an AttachmentMeta record (mock metadata; no
- *     server call in this phase — the `url` field is left undefined)
- *   - Files can be removed; their blob URLs are revoked to prevent leaks
+ *   - Upload any file via a hidden <input type="file" multiple>
+ *   - image / document → data URL (base64, persists across page refresh)
+ *   - video            → blob URL (data URLs are too large; in-session only)
+ *   - Files can be removed; blob URLs are revoked to free memory
  *
- * This is a pure client-side mock. When real upload infrastructure is added,
- * replace the onChange call inside handleFiles with an async upload + URL
- * resolution step and set `att.url` to the returned permanent URL.
+ * When real upload infrastructure is added, replace the readFileAsDataUrl call
+ * with an async upload → server URL resolution step and set att.url.
  */
-/** Convert a File to a base64 data URL. Resolves in-memory — no server needed. */
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
-}
-
 export function AttachmentArea({ attachments, onChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -93,7 +66,7 @@ export function AttachmentArea({ attachments, onChange }: Props) {
           ? URL.createObjectURL(file)          // blob — large videos can't be base64'd in localStorage
           : await readFileAsDataUrl(file);     // data URL — persists across page refresh
       newItems.push({
-        id: makeId(),
+        id: makeAttId(),
         name: file.name,
         type,
         localPreviewUrl,
