@@ -1,22 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { CheckCircle2, Pencil } from "lucide-react";
 import type { OntologyModule } from "@/types/workbench";
+import type { OntologyModuleStructuredData } from "@/types/ontologyModules";
 import { useWorkbench } from "@/contexts/WorkbenchContext";
+
+// View components (inherited / confirmed state)
 import { SystemModuleView } from "./modules/SystemModuleView";
 import { PreparationModuleView } from "./modules/PreparationModuleView";
 import { OperationModuleView } from "./modules/OperationModuleView";
 import { MeasurementModuleView } from "./modules/MeasurementModuleView";
 import { DataModuleView } from "./modules/DataModuleView";
 
+// Structured editor components (editing state — priority 3)
+import { SystemModuleEditor } from "./modules/SystemModuleEditor";
+import { OperationModuleEditor } from "./modules/OperationModuleEditor";
+import { MeasurementModuleEditor } from "./modules/MeasurementModuleEditor";
+
 // ---------------------------------------------------------------------------
-// Structured content dispatcher
+// Structured view dispatcher
 // ---------------------------------------------------------------------------
 
 /**
- * StructuredModuleView — selects the correct view component based on module key.
- * Rendered in inherited / confirmed states.
- * Falls back to a plain pre-wrap text block when structuredData is absent
- * (e.g. legacy records created before structured data was introduced).
+ * Selects the correct read-only view panel based on module.key.
+ * Falls back to a pre-wrap text block when structuredData is absent.
  */
 function StructuredModuleView({
   module,
@@ -28,37 +34,84 @@ function StructuredModuleView({
   const sd = module.structuredData;
 
   if (module.key === "system") {
-    const objects = sd?.systemObjects ?? [];
-    return <SystemModuleView objects={objects} onAdd={onAdd} />;
+    return <SystemModuleView objects={sd?.systemObjects ?? []} onAdd={onAdd} />;
   }
-
   if (module.key === "preparation") {
-    const items = sd?.prepItems ?? [];
-    return <PreparationModuleView items={items} onAdd={onAdd} />;
+    return <PreparationModuleView items={sd?.prepItems ?? []} onAdd={onAdd} />;
   }
-
   if (module.key === "operation") {
-    const steps = sd?.operationSteps ?? [];
-    return <OperationModuleView steps={steps} onAdd={onAdd} />;
+    return <OperationModuleView steps={sd?.operationSteps ?? []} onAdd={onAdd} />;
   }
-
   if (module.key === "measurement") {
-    const items = sd?.measurementItems ?? [];
-    return <MeasurementModuleView items={items} onAdd={onAdd} />;
+    return <MeasurementModuleView items={sd?.measurementItems ?? []} onAdd={onAdd} />;
   }
-
   if (module.key === "data") {
-    const items = sd?.dataItems ?? [];
-    return <DataModuleView items={items} onAdd={onAdd} />;
+    return <DataModuleView items={sd?.dataItems ?? []} onAdd={onAdd} />;
   }
-
-  // Fallback — should not reach here with a valid key
   return (
     <div className="px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
       {module.content || (
         <span className="text-gray-300 italic">暂无内容，点击"编辑"填写</span>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Structured editor dispatcher (editing state)
+// ---------------------------------------------------------------------------
+
+/**
+ * Selects the correct structured editor for the three priority modules.
+ * For preparation / data, falls back to a plain textarea (lower priority).
+ */
+function StructuredModuleEditorBody({
+  module,
+  structuredDraft,
+  textDraft,
+  onChangeStructured,
+  onChangeText,
+}: {
+  module: OntologyModule;
+  structuredDraft: OntologyModuleStructuredData;
+  textDraft: string;
+  onChangeStructured: (data: OntologyModuleStructuredData) => void;
+  onChangeText: (text: string) => void;
+}) {
+  if (module.key === "system") {
+    return (
+      <SystemModuleEditor
+        objects={structuredDraft.systemObjects ?? []}
+        onChange={(objects) => onChangeStructured({ ...structuredDraft, systemObjects: objects })}
+      />
+    );
+  }
+  if (module.key === "operation") {
+    return (
+      <OperationModuleEditor
+        steps={structuredDraft.operationSteps ?? []}
+        onChange={(steps) => onChangeStructured({ ...structuredDraft, operationSteps: steps })}
+      />
+    );
+  }
+  if (module.key === "measurement") {
+    return (
+      <MeasurementModuleEditor
+        items={structuredDraft.measurementItems ?? []}
+        onChange={(items) => onChangeStructured({ ...structuredDraft, measurementItems: items })}
+      />
+    );
+  }
+
+  // preparation / data — textarea fallback (scheduled for next phase)
+  return (
+    <textarea
+      value={textDraft}
+      onChange={(e) => onChangeText(e.target.value)}
+      className="w-full h-full min-h-[200px] px-4 py-3 text-sm text-gray-700 leading-relaxed resize-none outline-none bg-amber-50 border-0 font-mono"
+      placeholder="输入模块内容…"
+      autoFocus
+    />
   );
 }
 
@@ -73,38 +126,57 @@ interface Props {
 /**
  * OntologyModuleEditor — displays and edits a single ontology module.
  *
- * State machine (one-way except edit → inherited on cancel):
- *   inherited → confirmed  (直接确认继承内容，无需编辑)
- *   inherited → editing    (先编辑再确认)
- *   editing   → confirmed  (保存编辑内容并确认)
+ * State machine (per-module):
+ *   inherited → confirmed  (直接确认，不编辑)
+ *   inherited → editing    (先编辑后确认)
+ *   editing   → confirmed  (保存并确认)
  *   editing   → inherited  (取消，内容恢复)
- *   confirmed → editing    (再次编辑，状态回到 editing)
+ *   confirmed → editing    (再次编辑)
  *
- * View states (inherited / confirmed) now render structured card/list panels
- * via StructuredModuleView. The editing state retains a plain textarea.
+ * Editing state (3 priority modules):
+ *   实验系统 / 实验操作 / 测量过程 → structured card-form editors that match
+ *   the wizard's visual language (ItemCard + ItemField + AttachmentArea).
+ *   Results are committed to module.structuredData on confirm.
  *
- * Highlight: isHighlighted=true → faint amber ring (AI flagged this module)
+ *   实验准备 / 实验数据 → textarea fallback (next implementation phase).
+ *
+ * View state (inherited / confirmed):
+ *   All 5 modules → structured card/list views via StructuredModuleView.
  */
 export function OntologyModuleEditor({ module }: Props) {
-  const { updateModuleContent, setModuleStatus } = useWorkbench();
+  const { updateModuleContent, updateModuleStructuredData, setModuleStatus } =
+    useWorkbench();
 
-  const [draft, setDraft] = useState(module.content);
+  // Plain-text draft (used by preparation / data textarea fallback)
+  const [textDraft, setTextDraft] = useState(module.content);
 
-  // Sync draft when switching to a different module or record
+  // Structured draft (used by the 3 priority editors)
+  const [structuredDraft, setStructuredDraft] =
+    useState<OntologyModuleStructuredData>(() => module.structuredData ?? {});
+
+  // Sync both drafts when the active module changes
   useEffect(() => {
-    setDraft(module.content);
-  }, [module.key, module.content]);
+    setTextDraft(module.content);
+    setStructuredDraft(module.structuredData ?? {});
+  }, [module.key, module.content, module.structuredData]);
 
   const isEditing   = module.status === "editing";
   const isConfirmed = module.status === "confirmed";
   const isInherited = module.status === "inherited";
+
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
 
   function handleEditClick() {
     setModuleStatus(module.key, "editing");
   }
 
   function handleEditConfirm() {
-    updateModuleContent(module.key, draft);
+    // Commit text draft (for textarea modules)
+    updateModuleContent(module.key, textDraft);
+    // Commit structured draft (for all modules — no-op if structuredDraft is {})
+    updateModuleStructuredData(module.key, structuredDraft);
     setModuleStatus(module.key, "confirmed");
   }
 
@@ -113,13 +185,19 @@ export function OntologyModuleEditor({ module }: Props) {
   }
 
   function handleCancelEdit() {
-    setDraft(module.content);
+    // Roll back both drafts to the last persisted state
+    setTextDraft(module.content);
+    setStructuredDraft(module.structuredData ?? {});
     setModuleStatus(module.key, "inherited");
   }
 
   function handleReEdit() {
     setModuleStatus(module.key, "editing");
   }
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <div
@@ -201,22 +279,20 @@ export function OntologyModuleEditor({ module }: Props) {
       <div
         className={[
           "flex-1 overflow-y-auto",
-          isEditing   ? "bg-amber-50" : "",
-          isConfirmed ? "bg-white"    : "",
-          isInherited ? "bg-gray-50"  : "",
+          isEditing   ? "bg-amber-50/40" : "",
+          isConfirmed ? "bg-white"       : "",
+          isInherited ? "bg-gray-50"     : "",
         ].join(" ")}
       >
         {isEditing ? (
-          /* Editing state: plain textarea (fast, reliable, accepts any format) */
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            className="w-full h-full min-h-[200px] px-4 py-3 text-sm text-gray-700 leading-relaxed resize-none outline-none bg-amber-50 border-0 font-mono"
-            placeholder="输入模块内容…"
-            autoFocus
+          <StructuredModuleEditorBody
+            module={module}
+            structuredDraft={structuredDraft}
+            textDraft={textDraft}
+            onChangeStructured={setStructuredDraft}
+            onChangeText={setTextDraft}
           />
         ) : (
-          /* View state (inherited / confirmed): structured card / list panel */
           <StructuredModuleView module={module} onAdd={handleEditClick} />
         )}
       </div>

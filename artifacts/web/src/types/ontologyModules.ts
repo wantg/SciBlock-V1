@@ -2,12 +2,33 @@
  * Structured data types for each ontology module.
  *
  * These types represent the domain-level entities inside each module,
- * as opposed to the flat `content: string` which is used by the editing textarea.
+ * as opposed to the flat `content: string` used by the legacy textarea.
  *
- * Rule: only module view components and workbenchMockData import from here.
- *       WorkbenchContext and OntologyModuleEditor deal with OntologyModule
- *       (from types/workbench) and call into these types via structuredData.
+ * Import rules:
+ *  - Module view/editor components import from here.
+ *  - workbenchMockData imports from here.
+ *  - WorkbenchContext deals with OntologyModule (from types/workbench) and
+ *    references OntologyModuleStructuredData through the workbench type.
  */
+
+// ---------------------------------------------------------------------------
+// Attachment — per-item evidence / file metadata
+// ---------------------------------------------------------------------------
+
+export type AttachmentType = "image" | "video" | "document";
+
+export interface AttachmentMeta {
+  id: string;
+  name: string;
+  type: AttachmentType;
+  /** Remote URL after a real upload; undefined for mock or pre-upload state. */
+  url?: string;
+  /** Blob / object URL for local preview (images only). Released on unmount. */
+  localPreviewUrl?: string;
+  /** File size in bytes. */
+  size?: number;
+  uploadedAt: string;
+}
 
 // ---------------------------------------------------------------------------
 // System — research objects / apparatus
@@ -15,13 +36,14 @@
 
 export interface SystemObject {
   id: string;
-  /** Display name of the object (e.g. "Si(100) 基底") */
+  /** Display name (e.g. "Si(100) 基底") */
   name: string;
   /** Role label (e.g. "研究基底" | "靶材" | "设备") */
   role: string;
   /** Short attribute chips (e.g. ["4英寸", "1–10 Ω·cm"]) */
   attributes: string[];
   description?: string;
+  attachments?: AttachmentMeta[];
 }
 
 // ---------------------------------------------------------------------------
@@ -35,6 +57,7 @@ export interface PrepItem {
   category: string;
   duration?: string;
   description?: string;
+  attachments?: AttachmentMeta[];
 }
 
 // ---------------------------------------------------------------------------
@@ -48,6 +71,7 @@ export interface OperationStep {
   /** Key parameters in condensed form (e.g. "RF 150 W, 5 min") */
   params?: string;
   notes?: string;
+  attachments?: AttachmentMeta[];
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +86,7 @@ export interface MeasurementItem {
   /** What this measurement aims to determine */
   target: string;
   conditions?: string;
+  attachments?: AttachmentMeta[];
 }
 
 // ---------------------------------------------------------------------------
@@ -73,6 +98,7 @@ export interface DataItem {
   name: string;
   unit?: string;
   description?: string;
+  attachments?: AttachmentMeta[];
 }
 
 // ---------------------------------------------------------------------------

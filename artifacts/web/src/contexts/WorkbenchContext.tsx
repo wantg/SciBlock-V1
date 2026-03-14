@@ -15,6 +15,7 @@ import type {
   ExperimentStatus,
   WorkbenchFocusMode,
 } from "@/types/workbench";
+import type { OntologyModuleStructuredData } from "@/types/ontologyModules";
 import { FLOW_TRIGGER_KEYS } from "@/types/workbench";
 import {
   DEFAULT_ONTOLOGY_VERSION,
@@ -61,6 +62,7 @@ interface WorkbenchContextValue {
 
   // Module mutations
   updateModuleContent: (key: OntologyModuleKey, content: string) => void;
+  updateModuleStructuredData: (key: OntologyModuleKey, data: OntologyModuleStructuredData) => void;
   setModuleStatus: (key: OntologyModuleKey, status: OntologyModuleStatus) => void;
   setModuleHighlights: (keys: OntologyModuleKey[]) => void;
   clearHighlights: () => void;
@@ -300,6 +302,18 @@ export function WorkbenchProvider({
     );
   }
 
+  function updateModuleStructuredData(
+    key: OntologyModuleKey,
+    data: OntologyModuleStructuredData,
+  ) {
+    const now = new Date().toISOString();
+    patchCurrentModules((modules) =>
+      modules.map((m) =>
+        m.key === key ? { ...m, structuredData: data, updatedAt: now } : m,
+      ),
+    );
+  }
+
   function setModuleStatus(key: OntologyModuleKey, status: OntologyModuleStatus) {
     const now = new Date().toISOString();
     patchCurrentModules((modules) =>
@@ -392,6 +406,7 @@ export function WorkbenchProvider({
     removeTag,
     updateEditorContent,
     updateModuleContent,
+    updateModuleStructuredData,
     setModuleStatus,
     setModuleHighlights,
     clearHighlights,
