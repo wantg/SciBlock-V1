@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Plus, MoreHorizontal, Trash2 } from "lucide-react";
 import { useWorkbench } from "@/contexts/WorkbenchContext";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -17,45 +18,65 @@ const STATUS_DOT: Record<ExperimentStatus, string> = {
   已验证: "bg-violet-400",
 };
 
-/**
- * A record is "未确认" (deletable) when NONE of its modules are confirmed.
- * Once any module is confirmed, the record is protected to preserve the
- * ontology inheritance chain.
- */
 function isRecordDeletable(record: ExperimentRecord): boolean {
   return record.currentModules.every((m) => m.status !== "confirmed");
 }
 
 // ---------------------------------------------------------------------------
-// RecordMenu — the "..." dropdown anchored to each active tab
+// PortalMenu — renders into document.body via createPortal
+//
+// Root cause of the original bug:
+//   The RecordSwitcher has overflow-x:auto which implicitly sets overflow-y:hidden,
+//   AND the outer WorkbenchLayout has overflow:hidden — two stacked clipping contexts
+//   that crop any absolute-positioned child, regardless of z-index.
+//
+// Fix: position:fixed menu rendered via createPortal escapes both contexts entirely.
 // ---------------------------------------------------------------------------
 
-interface RecordMenuProps {
+interface PortalMenuProps {
+  anchorRect: DOMRect;
   record: ExperimentRecord;
   isOnlyRecord: boolean;
   onDelete: () => void;
   onClose: () => void;
 }
 
-function RecordMenu({ record, isOnlyRecord, onDelete, onClose }: RecordMenuProps) {
+function PortalMenu({
+  anchorRect,
+  record,
+  isOnlyRecord,
+  onDelete,
+  onClose,
+}: PortalMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const deletable = isRecordDeletable(record) && !isOnlyRecord;
 
-  // Close on outside click
+  // Position the menu just below and aligned to the left of the anchor button
+  const top  = anchorRect.bottom + 4;
+  const left = anchorRect.left;
+
+  // Close on any outside mousedown
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
       }
     }
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
+    // slight delay so the click that opened it doesn't immediately close it
+    const id = window.setTimeout(() => {
+      document.addEventListener("mousedown", handleOutside);
+    }, 0);
+    return () => {
+      window.clearTimeout(id);
+      document.removeEventListener("mousedown", handleOutside);
+    };
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
       ref={menuRef}
-      className="absolute top-full left-0 mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]"
+      style={{ position: "fixed", top, left, zIndex: 9999 }}
+      className="bg-white border border-gray-200 rounded-lg shadow-xl py-1 min-w-[200px]"
       onMouseDown={(e) => e.stopPropagation()}
     >
       {deletable ? (
@@ -67,24 +88,25 @@ function RecordMenu({ record, isOnlyRecord, onDelete, onClose }: RecordMenuProps
           删除记录
         </button>
       ) : (
-        <div className="px-3 py-2">
-          <div className="flex items-center gap-2 text-xs text-gray-300 cursor-not-allowed mb-0.5">
+        <div className="px-3 py-2.5">
+          <div className="flex items-center gap-2 text-xs text-gray-300 cursor-not-allowed mb-1">
             <Trash2 size={12} />
             删除记录
           </div>
-          <p className="text-[10px] text-gray-300 leading-tight">
+          <p className="text-[10px] text-gray-400 leading-snug">
             {isOnlyRecord
               ? "至少保留一条记录"
               : "已确认记录暂不支持删除，以避免影响本体信息传承"}
           </p>
         </div>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 // ---------------------------------------------------------------------------
-// RecordTab — single tab with optional "..." menu trigger
+// RecordTab
 // ---------------------------------------------------------------------------
 
 interface RecordTabProps {
@@ -104,14 +126,24 @@ function RecordTab({
   onSelect,
   onDelete,
 }: RecordTabProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen]   = useState(false);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   const label = record.title.trim() || RECORD_FALLBACK;
   const dot   = STATUS_DOT[record.experimentStatus];
 
   function handleMoreClick(e: React.MouseEvent) {
     e.stopPropagation();
-    setMenuOpen((v) => !v);
+    if (menuOpen) {
+      setMenuOpen(false);
+      return;
+    }
+    // Capture the button's position for portal-based fixed positioning
+    if (btnRef.current) {
+      setAnchorRect(btnRef.current.getBoundingClientRect());
+    }
+    setMenuOpen(true);
   }
 
   function handleDeleteRequest() {
@@ -121,6 +153,7 @@ function RecordTab({
 
   return (
     <div className="relative flex-shrink-0">
+      {/* Tab row */}
       <div
         className={[
           "flex items-center gap-1.5 pl-3 pr-1.5 py-2 text-xs whitespace-nowrap",
@@ -136,21 +169,28 @@ function RecordTab({
         <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
         <span className="truncate max-w-[120px]">{label}</span>
 
-        {/* "..." only visible on the active tab */}
+        {/* "..." only on the active tab */}
         {isActive && (
           <button
+            ref={btnRef}
             onClick={handleMoreClick}
             title="更多操作"
-            className="ml-1 p-0.5 rounded text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors flex-shrink-0"
+            className={[
+              "ml-1 p-0.5 rounded transition-colors flex-shrink-0",
+              menuOpen
+                ? "bg-gray-200 text-gray-700"
+                : "text-gray-300 hover:text-gray-600 hover:bg-gray-100",
+            ].join(" ")}
           >
             <MoreHorizontal size={12} />
           </button>
         )}
       </div>
 
-      {/* Dropdown menu */}
-      {isActive && menuOpen && (
-        <RecordMenu
+      {/* Portal dropdown — bypasses all overflow clipping */}
+      {isActive && menuOpen && anchorRect && (
+        <PortalMenu
+          anchorRect={anchorRect}
           record={record}
           isOnlyRecord={isOnlyRecord}
           onDelete={handleDeleteRequest}
@@ -162,30 +202,14 @@ function RecordTab({
 }
 
 // ---------------------------------------------------------------------------
-// RecordSwitcher — the full tab bar
+// RecordSwitcher
 // ---------------------------------------------------------------------------
 
-/**
- * RecordSwitcher — horizontal tab bar above the three-panel layout.
- *
- * - Shows all experiment records as tabs.
- * - Active tab has a dark underline + "..." more-options button.
- * - "..." menu exposes "删除记录":
- *     • Enabled  when ALL modules are still inherited (未确认)
- *     • Disabled when any module is confirmed OR only 1 record remains
- * - Confirmation dialog (ConfirmDialog) gates the actual deletion.
- * - "+ 新建" button on the right end creates a new record.
- */
 export function RecordSwitcher() {
   const { records, currentRecord, switchRecord, createNewRecord, deleteRecord } =
     useWorkbench();
 
-  // Pending-delete state drives the ConfirmDialog
   const [pendingDelete, setPendingDelete] = useState<ExperimentRecord | null>(null);
-
-  function handleDeleteRequest(record: ExperimentRecord) {
-    setPendingDelete(record);
-  }
 
   function handleConfirmDelete() {
     if (!pendingDelete) return;
@@ -193,14 +217,14 @@ export function RecordSwitcher() {
     setPendingDelete(null);
   }
 
-  function handleCancelDelete() {
-    setPendingDelete(null);
-  }
-
   const isOnlyRecord = records.length === 1;
 
   return (
     <>
+      {/*
+        NOTE: overflow-x:auto clips overflow-y as well (CSS spec).
+        The dropdown MUST NOT live inside this div — it uses createPortal instead.
+      */}
       <div className="flex-shrink-0 flex items-center border-b border-gray-100 bg-gray-50 overflow-x-auto">
         {records.map((rec, i) => (
           <RecordTab
@@ -210,7 +234,7 @@ export function RecordSwitcher() {
             isActive={rec.id === currentRecord.id}
             isOnlyRecord={isOnlyRecord}
             onSelect={() => switchRecord(rec.id)}
-            onDelete={handleDeleteRequest}
+            onDelete={setPendingDelete}
           />
         ))}
 
@@ -224,7 +248,6 @@ export function RecordSwitcher() {
         </button>
       </div>
 
-      {/* Deletion confirmation dialog */}
       <ConfirmDialog
         open={pendingDelete !== null}
         danger
@@ -233,7 +256,7 @@ export function RecordSwitcher() {
         confirmLabel="删除"
         cancelLabel="取消"
         onConfirm={handleConfirmDelete}
-        onCancel={handleCancelDelete}
+        onCancel={() => setPendingDelete(null)}
       />
     </>
   );
