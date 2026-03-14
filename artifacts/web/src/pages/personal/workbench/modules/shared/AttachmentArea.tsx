@@ -1,12 +1,13 @@
 import React, { useRef } from "react";
 import { Paperclip, Image, Film, FileText, X } from "lucide-react";
-import type { AttachmentMeta, AttachmentType } from "@/types/ontologyModules";
+import type { AttachmentMeta, AttachmentStatus, AttachmentType } from "@/types/ontologyModules";
 import {
   detectType,
   formatSize,
   makeAttId,
   readFileAsDataUrl,
 } from "@/data/attachmentUtils";
+import { AttachmentStatusBadge } from "./AttachmentStatusBadge";
 
 // ---------------------------------------------------------------------------
 // Type icon
@@ -87,6 +88,12 @@ export function AttachmentArea({ attachments, onChange }: Props) {
     onChange(attachments.filter((a) => a.id !== att.id));
   }
 
+  function setStatus(att: AttachmentMeta, status: AttachmentStatus | undefined) {
+    onChange(
+      attachments.map((a) => (a.id === att.id ? { ...a, status } : a)),
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2 pt-2 border-t border-gray-100 mt-1">
       {/* Header row */}
@@ -156,6 +163,12 @@ export function AttachmentArea({ attachments, onChange }: Props) {
                   )}
                 </div>
               </div>
+
+              {/* Status badge — clickable in edit mode */}
+              <AttachmentStatusBadge
+                status={att.status}
+                onChange={(next) => setStatus(att, next)}
+              />
 
               {/* Delete */}
               <button

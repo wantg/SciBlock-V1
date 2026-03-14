@@ -40,6 +40,7 @@ import {
   resolveAttachmentSrc,
 } from "@/data/attachmentStorage";
 import { formatSize } from "@/data/attachmentUtils";
+import { AttachmentStatusBadge } from "./AttachmentStatusBadge";
 
 function TypeIcon({ type }: { type: AttachmentType }) {
   const cls = "w-3.5 h-3.5";
@@ -309,6 +310,9 @@ export function AttachmentViewStrip({ attachments }: Props) {
                     )}
                   </div>
                 </div>
+
+                {/* Status badge — read-only in view strip */}
+                <AttachmentStatusBadge status={att.status} />
 
                 {/* Action button: type-specific */}
                 {att.type === "image" ? (

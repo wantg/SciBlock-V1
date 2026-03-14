@@ -16,10 +16,25 @@ export type { Tag };
 
 export type AttachmentType = "image" | "video" | "document";
 
+/**
+ * User-assigned quality status for an uploaded attachment.
+ *
+ *   合格   → green   (acceptable result)
+ *   不合格  → red     (unacceptable result)
+ *   待确认  → yellow  (pending review)
+ *   undefined → not yet labelled
+ */
+export type AttachmentStatus = "合格" | "不合格" | "待确认";
+
 export interface AttachmentMeta {
   id: string;
   name: string;
   type: AttachmentType;
+  /**
+   * User-assigned quality status label.
+   * Persisted through sessionStorage alongside all other attachment metadata.
+   */
+  status?: AttachmentStatus;
   /** Remote URL after a real upload. */
   url?: string;
   /** Blob URL for local image preview. Must be revoked on delete. */
