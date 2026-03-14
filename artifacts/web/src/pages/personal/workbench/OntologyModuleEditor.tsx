@@ -1,118 +1,92 @@
-import React, { useState, useEffect } from "react";
+/**
+ * OntologyModuleEditor — orchestrates a single ontology module.
+ *
+ * Architecture change (item-level inline editing):
+ *  - Module body is ALWAYS visible — no editing-state gate on content.
+ *  - Per-item editing is handled inside each module editor component.
+ *  - Writes from item editors go directly to updateModuleStructuredData
+ *    on each item save — no module-level draft accumulation.
+ *  - Module header only controls the inherited → confirmed status annotation.
+ *    "确认" = "I've reviewed this module". Item editing is independent of status.
+ *
+ * Module dispatch:
+ *   实验系统    → SystemModuleEditor
+ *   实验准备    → PreparationModuleEditor
+ *   实验操作    → OperationModuleEditor
+ *   测量过程    → MeasurementModuleEditor
+ *   实验数据    → DataModuleView (view + inline add, next phase for full editor)
+ */
+
+import React from "react";
 import { CheckCircle2, Pencil } from "lucide-react";
 import type { OntologyModule } from "@/types/workbench";
 import type { OntologyModuleStructuredData } from "@/types/ontologyModules";
 import { useWorkbench } from "@/contexts/WorkbenchContext";
 
-// View components (inherited / confirmed state)
-import { SystemModuleView } from "./modules/SystemModuleView";
-import { PreparationModuleView } from "./modules/PreparationModuleView";
-import { OperationModuleView } from "./modules/OperationModuleView";
-import { MeasurementModuleView } from "./modules/MeasurementModuleView";
-import { DataModuleView } from "./modules/DataModuleView";
-
-// Structured editor components (editing state — priority 3)
 import { SystemModuleEditor } from "./modules/SystemModuleEditor";
+import { PreparationModuleEditor } from "./modules/PreparationModuleEditor";
 import { OperationModuleEditor } from "./modules/OperationModuleEditor";
 import { MeasurementModuleEditor } from "./modules/MeasurementModuleEditor";
+import { DataModuleView } from "./modules/DataModuleView";
 
 // ---------------------------------------------------------------------------
-// Structured view dispatcher
+// Module content dispatcher
 // ---------------------------------------------------------------------------
 
-/**
- * Selects the correct read-only view panel based on module.key.
- * Falls back to a pre-wrap text block when structuredData is absent.
- */
-function StructuredModuleView({
-  module,
-  onAdd,
-}: {
+interface BodyProps {
   module: OntologyModule;
-  onAdd: () => void;
-}) {
-  const sd = module.structuredData;
-
-  if (module.key === "system") {
-    return <SystemModuleView objects={sd?.systemObjects ?? []} onAdd={onAdd} />;
-  }
-  if (module.key === "preparation") {
-    return <PreparationModuleView items={sd?.prepItems ?? []} onAdd={onAdd} />;
-  }
-  if (module.key === "operation") {
-    return <OperationModuleView steps={sd?.operationSteps ?? []} onAdd={onAdd} />;
-  }
-  if (module.key === "measurement") {
-    return <MeasurementModuleView items={sd?.measurementItems ?? []} onAdd={onAdd} />;
-  }
-  if (module.key === "data") {
-    return <DataModuleView items={sd?.dataItems ?? []} onAdd={onAdd} />;
-  }
-  return (
-    <div className="px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-      {module.content || (
-        <span className="text-gray-300 italic">暂无内容，点击"编辑"填写</span>
-      )}
-    </div>
-  );
+  /** Incremental updater — merges into module.structuredData and persists. */
+  onUpdate: (patch: Partial<OntologyModuleStructuredData>) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Structured editor dispatcher (editing state)
-// ---------------------------------------------------------------------------
+function ModuleBody({ module, onUpdate }: BodyProps) {
+  const sd = module.structuredData ?? {};
 
-/**
- * Selects the correct structured editor for the three priority modules.
- * For preparation / data, falls back to a plain textarea (lower priority).
- */
-function StructuredModuleEditorBody({
-  module,
-  structuredDraft,
-  textDraft,
-  onChangeStructured,
-  onChangeText,
-}: {
-  module: OntologyModule;
-  structuredDraft: OntologyModuleStructuredData;
-  textDraft: string;
-  onChangeStructured: (data: OntologyModuleStructuredData) => void;
-  onChangeText: (text: string) => void;
-}) {
-  if (module.key === "system") {
-    return (
-      <SystemModuleEditor
-        objects={structuredDraft.systemObjects ?? []}
-        onChange={(objects) => onChangeStructured({ ...structuredDraft, systemObjects: objects })}
-      />
-    );
+  switch (module.key) {
+    case "system":
+      return (
+        <SystemModuleEditor
+          objects={sd.systemObjects ?? []}
+          onUpdate={(objects) => onUpdate({ systemObjects: objects })}
+        />
+      );
+    case "preparation":
+      return (
+        <PreparationModuleEditor
+          items={sd.prepItems ?? []}
+          onUpdate={(items) => onUpdate({ prepItems: items })}
+        />
+      );
+    case "operation":
+      return (
+        <OperationModuleEditor
+          steps={sd.operationSteps ?? []}
+          onUpdate={(steps) => onUpdate({ operationSteps: steps })}
+        />
+      );
+    case "measurement":
+      return (
+        <MeasurementModuleEditor
+          items={sd.measurementItems ?? []}
+          onUpdate={(items) => onUpdate({ measurementItems: items })}
+        />
+      );
+    case "data":
+      return (
+        <DataModuleView
+          items={sd.dataItems ?? []}
+          onAdd={() => {
+            /* DataModuleEditor planned for next phase */
+          }}
+        />
+      );
+    default:
+      return (
+        <div className="px-4 py-3 text-sm text-gray-400 italic">
+          模块内容暂未配置
+        </div>
+      );
   }
-  if (module.key === "operation") {
-    return (
-      <OperationModuleEditor
-        steps={structuredDraft.operationSteps ?? []}
-        onChange={(steps) => onChangeStructured({ ...structuredDraft, operationSteps: steps })}
-      />
-    );
-  }
-  if (module.key === "measurement") {
-    return (
-      <MeasurementModuleEditor
-        items={structuredDraft.measurementItems ?? []}
-        onChange={(items) => onChangeStructured({ ...structuredDraft, measurementItems: items })}
-      />
-    );
-  }
-
-  // preparation / data — textarea fallback (scheduled for next phase)
-  return (
-    <textarea
-      value={textDraft}
-      onChange={(e) => onChangeText(e.target.value)}
-      className="w-full h-full min-h-[200px] px-4 py-3 text-sm text-gray-700 leading-relaxed resize-none outline-none bg-amber-50 border-0 font-mono"
-      placeholder="输入模块内容…"
-      autoFocus
-    />
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -123,81 +97,29 @@ interface Props {
   module: OntologyModule;
 }
 
-/**
- * OntologyModuleEditor — displays and edits a single ontology module.
- *
- * State machine (per-module):
- *   inherited → confirmed  (直接确认，不编辑)
- *   inherited → editing    (先编辑后确认)
- *   editing   → confirmed  (保存并确认)
- *   editing   → inherited  (取消，内容恢复)
- *   confirmed → editing    (再次编辑)
- *
- * Editing state (3 priority modules):
- *   实验系统 / 实验操作 / 测量过程 → structured card-form editors that match
- *   the wizard's visual language (ItemCard + ItemField + AttachmentArea).
- *   Results are committed to module.structuredData on confirm.
- *
- *   实验准备 / 实验数据 → textarea fallback (next implementation phase).
- *
- * View state (inherited / confirmed):
- *   All 5 modules → structured card/list views via StructuredModuleView.
- */
 export function OntologyModuleEditor({ module }: Props) {
-  const { updateModuleContent, updateModuleStructuredData, setModuleStatus } =
-    useWorkbench();
+  const { updateModuleStructuredData, setModuleStatus } = useWorkbench();
 
-  // Plain-text draft (used by preparation / data textarea fallback)
-  const [textDraft, setTextDraft] = useState(module.content);
-
-  // Structured draft (used by the 3 priority editors)
-  const [structuredDraft, setStructuredDraft] =
-    useState<OntologyModuleStructuredData>(() => module.structuredData ?? {});
-
-  // Sync both drafts when the active module changes
-  useEffect(() => {
-    setTextDraft(module.content);
-    setStructuredDraft(module.structuredData ?? {});
-  }, [module.key, module.content, module.structuredData]);
-
-  const isEditing   = module.status === "editing";
   const isConfirmed = module.status === "confirmed";
   const isInherited = module.status === "inherited";
 
-  // ---------------------------------------------------------------------------
-  // Actions
-  // ---------------------------------------------------------------------------
-
-  function handleEditClick() {
-    setModuleStatus(module.key, "editing");
+  /**
+   * Incremental write: merges patch into current structuredData, then
+   * persists via context. This is the only write path — no module-level
+   * draft means no stale-closure overwrite risk.
+   */
+  function handleUpdate(patch: Partial<OntologyModuleStructuredData>) {
+    const sd = module.structuredData ?? {};
+    updateModuleStructuredData(module.key, { ...sd, ...patch });
   }
 
-  function handleEditConfirm() {
-    // Commit text draft (for textarea modules)
-    updateModuleContent(module.key, textDraft);
-    // Commit structured draft (for all modules — no-op if structuredDraft is {})
-    updateModuleStructuredData(module.key, structuredDraft);
+  function handleConfirm() {
     setModuleStatus(module.key, "confirmed");
   }
 
-  function handleDirectConfirm() {
-    setModuleStatus(module.key, "confirmed");
-  }
-
-  function handleCancelEdit() {
-    // Roll back both drafts to the last persisted state
-    setTextDraft(module.content);
-    setStructuredDraft(module.structuredData ?? {});
+  function handleReopen() {
     setModuleStatus(module.key, "inherited");
   }
-
-  function handleReEdit() {
-    setModuleStatus(module.key, "editing");
-  }
-
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
 
   return (
     <div
@@ -207,7 +129,7 @@ export function OntologyModuleEditor({ module }: Props) {
       ].join(" ")}
     >
       {/* ------------------------------------------------------------------ */}
-      {/* Header                                                              */}
+      {/* Header — module title + status annotation                           */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-white flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -220,85 +142,40 @@ export function OntologyModuleEditor({ module }: Props) {
         </div>
 
         <div className="flex items-center gap-1.5">
-          {isConfirmed && (
+          {isConfirmed ? (
             <>
               <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
                 <CheckCircle2 size={13} />
                 已确认
               </span>
               <button
-                onClick={handleReEdit}
-                className="text-xs text-gray-300 hover:text-gray-600 transition-colors ml-1"
-                title="重新编辑"
+                onClick={handleReopen}
+                className="text-gray-300 hover:text-gray-600 transition-colors ml-1 p-0.5 rounded"
+                title="撤销确认，继续编辑"
               >
                 <Pencil size={11} />
               </button>
             </>
-          )}
-
-          {isEditing && (
-            <>
-              <button
-                onClick={handleCancelEdit}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors px-1.5 py-0.5 rounded"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleEditConfirm}
-                className="text-xs bg-gray-900 text-white px-2.5 py-1 rounded hover:bg-gray-700 transition-colors font-medium"
-              >
-                确认
-              </button>
-            </>
-          )}
-
-          {isInherited && (
-            <>
-              <button
-                onClick={handleEditClick}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors"
-              >
-                <Pencil size={12} />
-                编辑
-              </button>
-              <button
-                onClick={handleDirectConfirm}
-                className="text-xs border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-800 px-2 py-0.5 rounded transition-colors"
-              >
-                确认
-              </button>
-            </>
+          ) : (
+            <button
+              onClick={handleConfirm}
+              className="text-xs border border-gray-200 text-gray-500 hover:border-gray-800 hover:text-gray-900 px-2.5 py-1 rounded transition-colors"
+            >
+              确认
+            </button>
           )}
         </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Content                                                             */}
+      {/* Body — always visible, per-item editing handled inside              */}
       {/* ------------------------------------------------------------------ */}
-      <div
-        className={[
-          "flex-1 overflow-y-auto",
-          isEditing   ? "bg-amber-50/40" : "",
-          isConfirmed ? "bg-white"       : "",
-          isInherited ? "bg-gray-50"     : "",
-        ].join(" ")}
-      >
-        {isEditing ? (
-          <StructuredModuleEditorBody
-            module={module}
-            structuredDraft={structuredDraft}
-            textDraft={textDraft}
-            onChangeStructured={setStructuredDraft}
-            onChangeText={setTextDraft}
-          />
-        ) : (
-          <StructuredModuleView module={module} onAdd={handleEditClick} />
-        )}
+      <div className="flex-1 overflow-y-auto bg-gray-50">
+        <ModuleBody module={module} onUpdate={handleUpdate} />
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Footer badge                                                        */}
+      {/* Footer — inherited hint                                             */}
       {/* ------------------------------------------------------------------ */}
       {isInherited && (
         <div className="px-4 py-1.5 border-t border-gray-100 bg-white flex-shrink-0">

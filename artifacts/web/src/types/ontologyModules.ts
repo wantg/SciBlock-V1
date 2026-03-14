@@ -1,14 +1,10 @@
 /**
  * Structured data types for each ontology module.
  *
- * These types represent the domain-level entities inside each module,
- * as opposed to the flat `content: string` used by the legacy textarea.
- *
  * Import rules:
  *  - Module view/editor components import from here.
  *  - workbenchMockData imports from here.
- *  - WorkbenchContext deals with OntologyModule (from types/workbench) and
- *    references OntologyModuleStructuredData through the workbench type.
+ *  - WorkbenchContext references OntologyModuleStructuredData through workbench types.
  */
 
 // ---------------------------------------------------------------------------
@@ -21,11 +17,10 @@ export interface AttachmentMeta {
   id: string;
   name: string;
   type: AttachmentType;
-  /** Remote URL after a real upload; undefined for mock or pre-upload state. */
+  /** Remote URL after a real upload. */
   url?: string;
-  /** Blob / object URL for local preview (images only). Released on unmount. */
+  /** Blob URL for local image preview. Must be revoked on delete. */
   localPreviewUrl?: string;
-  /** File size in bytes. */
   size?: number;
   uploadedAt: string;
 }
@@ -36,7 +31,6 @@ export interface AttachmentMeta {
 
 export interface SystemObject {
   id: string;
-  /** Display name (e.g. "Si(100) 基底") */
   name: string;
   /** Role label (e.g. "研究基底" | "靶材" | "设备") */
   role: string;
@@ -55,6 +49,10 @@ export interface PrepItem {
   name: string;
   /** Category label (e.g. "基底清洗" | "表面活化" | "靶材处理") */
   category: string;
+  /** Quantity / specification (e.g. "20 mL, 分析纯") */
+  spec?: string;
+  /** Pre-treatment method (e.g. "超声 15 min") */
+  treatment?: string;
   duration?: string;
   description?: string;
   attachments?: AttachmentMeta[];
@@ -68,7 +66,6 @@ export interface OperationStep {
   id: string;
   order: number;
   name: string;
-  /** Key parameters in condensed form (e.g. "RF 150 W, 5 min") */
   params?: string;
   notes?: string;
   attachments?: AttachmentMeta[];
@@ -83,7 +80,6 @@ export interface MeasurementItem {
   name: string;
   instrument?: string;
   method?: string;
-  /** What this measurement aims to determine */
   target: string;
   conditions?: string;
   attachments?: AttachmentMeta[];
