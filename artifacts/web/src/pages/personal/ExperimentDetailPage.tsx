@@ -5,8 +5,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useSciNoteStore } from "@/contexts/SciNoteStoreContext";
 import type { ExperimentField, ObjectItem } from "@/types/experimentFields";
 import { getExperimentName } from "@/types/experimentFields";
-import type { MeasurementItem, DataItem } from "@/types/ontologyModules";
-import type { Step5Data, Step6Data } from "@/types/wizardForm";
+import type { MeasurementItem, DataItem, OperationStep } from "@/types/ontologyModules";
+import type { Step4Data, Step5Data, Step6Data } from "@/types/wizardForm";
 
 // ---------------------------------------------------------------------------
 // Read-only ObjectItem card (mirrors ObjectItemCard's visual style)
@@ -111,6 +111,66 @@ function StepSection({ title, fields }: StepSectionProps) {
       </div>
     </section>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Step4Section — read-only view for 实验操作 (new card format)
+// Handles both new (items[]) and legacy (fields[]) step4 data.
+// ---------------------------------------------------------------------------
+
+function OperationStepSummary({ step }: { step: OperationStep }) {
+  return (
+    <div className="flex gap-3">
+      {/* Step number circle */}
+      <div className="flex flex-col items-center flex-shrink-0 pt-0.5">
+        <span className="w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-[11px] font-bold flex-shrink-0">
+          {step.order}
+        </span>
+      </div>
+      {/* Content */}
+      <div className="flex-1 min-w-0 bg-white border border-gray-100 rounded-lg px-3 py-2 flex flex-col gap-1.5">
+        <p className="text-sm font-medium text-gray-800 leading-snug">
+          {step.name || "—"}
+        </p>
+        {step.params.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {step.params.map((tag) => (
+              <span
+                key={tag.id}
+                className="inline-block bg-slate-100 text-slate-600 text-xs rounded-full px-2.5 py-0.5"
+              >
+                {tag.value ? `${tag.key}: ${tag.value}` : tag.key}
+              </span>
+            ))}
+          </div>
+        )}
+        {step.notes && (
+          <p className="text-xs text-gray-400 leading-relaxed">{step.notes}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Step4Section({ step4 }: { step4: Step4Data }) {
+  // New format: items[]
+  if (step4.items && step4.items.length > 0) {
+    return (
+      <section>
+        <h2 className="text-sm font-semibold text-gray-500 mb-3">实验操作</h2>
+        <div className="flex flex-col gap-3">
+          {step4.items.map((step) => (
+            <OperationStepSummary key={step.id} step={step} />
+          ))}
+        </div>
+      </section>
+    );
+  }
+  // Legacy format: fields[]
+  if (step4.fields && step4.fields.length > 0) {
+    return <StepSection title="实验操作" fields={step4.fields} />;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -279,7 +339,7 @@ export function ExperimentDetailPage() {
           <>
             <StepSection title="实验系统" fields={fd.step2.fields} />
             <StepSection title="实验准备" fields={fd.step3.fields} />
-            <StepSection title="实验操作" fields={fd.step4.fields} />
+            <Step4Section step4={fd.step4} />
             <Step5Section step5={fd.step5} />
             <Step6Section step6={fd.step6} />
           </>

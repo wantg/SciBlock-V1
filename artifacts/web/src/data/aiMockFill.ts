@@ -125,43 +125,57 @@ export const AI_MOCK_FILL: WizardFormData = {
 
   // ── Step 4 — 实验操作 ─────────────────────────────────────────────────────
   step4: {
-    fields: [
+    items: [
       {
-        id: "ai-s4-1", name: "操作步骤", type: "object", value: "", items: [],
-        objects: [
-          { id: "s4o-1", name: "步骤 1：催化剂分散", tags: [
-            { id: "s4t-1", key: "方法", value: "超声破碎" },
-            { id: "s4t-2", key: "时间", value: "15 min" },
-            { id: "s4t-3", key: "溶剂", value: "去离子水 50 mL" },
-          ]},
-          { id: "s4o-2", name: "步骤 2：底物混合", tags: [
-            { id: "s4t-4", key: "操作", value: "加入底物溶液，磁力搅拌" },
-            { id: "s4t-5", key: "时间", value: "5 min" },
-          ]},
-          { id: "s4o-3", name: "步骤 3：催化反应", tags: [
-            { id: "s4t-6", key: "时间", value: "60 min" },
-            { id: "s4t-7", key: "温度", value: "25°C" },
-            { id: "s4t-8", key: "搅拌速度", value: "500 rpm" },
-          ]},
-          { id: "s4o-4", name: "步骤 4：定时取样", tags: [
-            { id: "s4t-9",  key: "频率", value: "每 10 min 一次" },
-            { id: "s4t-10", key: "取样量", value: "1 mL" },
-            { id: "s4t-11", key: "处理", value: "过滤后备测" },
-          ]},
-          { id: "s4o-5", name: "步骤 5：催化剂回收", tags: [
-            { id: "s4t-12", key: "方法", value: "离心" },
-            { id: "s4t-13", key: "洗涤次数", value: "3 次" },
-          ]},
+        id: "ai-s4-1",
+        order: 1,
+        name: "催化剂分散",
+        params: [
+          { id: "s4t-1", key: "方法", value: "超声破碎" },
+          { id: "s4t-2", key: "时间", value: "15 min" },
+          { id: "s4t-3", key: "溶剂", value: "去离子水 50 mL" },
+        ],
+        notes: "纳米材料须在通风橱内操作，佩戴防护手套及 N95 口罩；超声过程注意控温防止材料变性",
+      },
+      {
+        id: "ai-s4-2",
+        order: 2,
+        name: "底物混合",
+        params: [
+          { id: "s4t-4", key: "操作", value: "加入底物溶液，磁力搅拌" },
+          { id: "s4t-5", key: "时间", value: "5 min" },
         ],
       },
       {
-        id: "ai-s4-2", name: "安全注意事项", type: "list", value: "", objects: [],
-        items: [
-          "纳米材料须在通风橱内操作，佩戴防护手套及 N95 口罩",
-          "超声过程注意控温，防止局部过热导致材料变性",
-          "取样时间点须精确记录，误差 ≤ 30 s",
-          "离心管使用前检查完整性，防止样品泄漏",
+        id: "ai-s4-3",
+        order: 3,
+        name: "催化反应",
+        params: [
+          { id: "s4t-6", key: "时间", value: "60 min" },
+          { id: "s4t-7", key: "温度", value: "25°C" },
+          { id: "s4t-8", key: "搅拌速度", value: "500 rpm" },
         ],
+      },
+      {
+        id: "ai-s4-4",
+        order: 4,
+        name: "定时取样",
+        params: [
+          { id: "s4t-9",  key: "频率", value: "每 10 min 一次" },
+          { id: "s4t-10", key: "取样量", value: "1 mL" },
+          { id: "s4t-11", key: "处理", value: "过滤后备测" },
+        ],
+        notes: "取样时间点须精确记录，误差 ≤ 30 s",
+      },
+      {
+        id: "ai-s4-5",
+        order: 5,
+        name: "催化剂回收",
+        params: [
+          { id: "s4t-12", key: "方法", value: "离心" },
+          { id: "s4t-13", key: "洗涤次数", value: "3 次" },
+        ],
+        notes: "离心管使用前检查完整性，防止样品泄漏",
       },
     ],
   },

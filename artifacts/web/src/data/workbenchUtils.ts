@@ -297,6 +297,9 @@ function step3ToPrepItems(fields: ExperimentField[]): PrepItem[] {
 // ----- Step 4 → 实验操作 -----
 
 /**
+ * Legacy fallback — only used when a note still carries the old
+ * Step4Data.fields format (field groups like 操作步骤 / 安全注意事项).
+ *
  * order is assigned sequentially across ALL step4 fields so the
  * global procedure order is preserved.
  *
@@ -304,11 +307,10 @@ function step3ToPrepItems(fields: ExperimentField[]): PrepItem[] {
  * list fields:   each string   → OperationStep (name only, notes = field name)
  * text fields:   the value     → OperationStep (name only)
  *
- * For items that come from a field that is NOT "操作步骤", the field
- * name is stored in OperationStep.notes so the origin is traceable
- * without polluting the step name.
+ * This function will never be called for notes created after the Step 4
+ * refactor — those notes carry items[] and go through the passthrough path.
  */
-function step4ToOperationSteps(fields: ExperimentField[]): OperationStep[] {
+function step4ToOperationStepsLegacy(fields: ExperimentField[]): OperationStep[] {
   const steps: OperationStep[] = [];
   let order = 1;
 
@@ -347,6 +349,26 @@ function step4ToOperationSteps(fields: ExperimentField[]): OperationStep[] {
   }
 
   return steps;
+}
+
+/**
+ * step4ToOperationSteps — dispatch between the two Step4Data formats.
+ *
+ * New format (items[]): direct passthrough — 1:1 fidelity, zero conversion.
+ *   OperationStep.order is already set correctly by the wizard editor
+ *   (maintained as index+1 on create/delete). No renumbering needed.
+ *   OperationStep.notes is user-provided "备注/注意事项" text, preserved verbatim.
+ *
+ * Legacy format (fields[]): best-effort mapping via the legacy function above.
+ */
+function step4ToOperationSteps(step4: { items?: OperationStep[]; fields?: ExperimentField[] }): OperationStep[] {
+  if (step4.items && step4.items.length > 0) {
+    return step4.items;
+  }
+  if (step4.fields && step4.fields.length > 0) {
+    return step4ToOperationStepsLegacy(step4.fields);
+  }
+  return [];
 }
 
 // ----- Step 5 → 测量过程 -----
@@ -506,7 +528,7 @@ export function wizardToModules(formData: WizardFormData): OntologyModule[] {
   return [
     makeModule("system",      "实验系统", { systemObjects:    step2ToSystemObjects(formData.step2.fields)   }),
     makeModule("preparation", "实验准备", { prepItems:        step3ToPrepItems(formData.step3.fields)       }),
-    makeModule("operation",   "实验操作", { operationSteps:   step4ToOperationSteps(formData.step4.fields)  }),
+    makeModule("operation",   "实验操作", { operationSteps:   step4ToOperationSteps(formData.step4)         }),
     makeModule("measurement", "测量过程", { measurementItems: step5ToMeasurementItems(formData.step5)       }),
     makeModule("data",        "实验数据", { dataItems:        step6ToDataItems(formData.step6)              }),
   ];

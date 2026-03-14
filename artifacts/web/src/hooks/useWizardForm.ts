@@ -4,14 +4,14 @@ import { getExperimentName } from "@/types/experimentFields";
 import {
   DEFAULT_STEP2_FIELDS,
   DEFAULT_STEP3_FIELDS,
-  DEFAULT_STEP4_FIELDS,
 } from "@/data/defaultStepFields";
 
 const INITIAL: WizardFormData = {
   step2: { fields: DEFAULT_STEP2_FIELDS },
   step3: { fields: DEFAULT_STEP3_FIELDS },
-  step4: { fields: DEFAULT_STEP4_FIELDS },
-  // Step 5 uses the per-event card model — starts empty, written only to items[].
+  // Step 4 uses the OperationStep card model — starts empty, written only to items[].
+  step4: { items: [] },
+  // Step 5 uses the MeasurementItem card model — starts empty, written only to items[].
   step5: { items: [] },
   // Step 6 uses the DataItem card model — starts empty, written only to items[].
   step6: { items: [] },
