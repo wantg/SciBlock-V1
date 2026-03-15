@@ -18,6 +18,15 @@ export const studentsTable = pgTable("students", {
   /** 'active' | 'pending' | 'graduated' */
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  /**
+   * Foreign key into the users table (users.id).
+   * Nullable — instructor accounts and unlinked legacy profiles have no user_id.
+   * Unique — one user account ↔ at most one student profile.
+   *
+   * TRANSITION: populated via seed / admin SQL for now.
+   * Long-term: introduce a proper Drizzle migration file instead of db push.
+   */
+  userId: text("user_id").unique(),
 });
 
 export type Student = typeof studentsTable.$inferSelect;

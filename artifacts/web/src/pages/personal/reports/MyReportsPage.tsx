@@ -1,62 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ReportListPanel } from "./ReportListPanel";
 import { ReportWorkPanel } from "./ReportWorkPanel";
-import { useMyReports, useMyStudentId, getCurrentWeekDefaults } from "@/hooks/reports/useMyReports";
+import { useMyReports, useCurrentStudentProfile, getCurrentWeekDefaults } from "@/hooks/reports/useMyReports";
 import { useCurrentUser } from "@/contexts/UserContext";
 import type { WeeklyReport } from "@/types/weeklyReport";
 import { fmtDate } from "@/types/weeklyReport";
-
-// ---------------------------------------------------------------------------
-// Student selector (shown when no student is chosen)
-// ---------------------------------------------------------------------------
-interface StudentPickerProps {
-  onSelect: (id: string) => void;
-}
-
-function StudentPicker({ onSelect }: StudentPickerProps) {
-  const [students, setStudents] = useState<Array<{ id: string; name: string }>>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch(import.meta.env.BASE_URL.replace(/\/$/, "") + "/api/reports/team")
-      .then((r) => r.json())
-      .then((data) => setStudents(data.students ?? []))
-      .catch(() => setStudents([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-gray-400">加载中…</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="bg-white rounded-xl border border-gray-200 p-8 w-80 text-center">
-        <h3 className="text-base font-semibold text-gray-800 mb-1">选择你的学生档案</h3>
-        <p className="text-sm text-gray-500 mb-5">选择后将记住你的身份</p>
-        <div className="flex flex-col gap-2">
-          {students.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => onSelect(s.id)}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors text-left"
-            >
-              {s.name}
-            </button>
-          ))}
-          {students.length === 0 && (
-            <p className="text-sm text-gray-400">暂无学生档案</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // New report dialog (inline)
@@ -132,22 +81,17 @@ function NewReportForm({ onConfirm, onCancel }: NewReportDialogProps) {
 
 export function MyReportsPage() {
   const { currentUser } = useCurrentUser();
-  const { studentId, setStudentId } = useMyStudentId();
-  const { reports, loading, create, save, submit, remove } = useMyReports(studentId);
+  const { profile, loading: profileLoading, error: profileError } = useCurrentStudentProfile();
+  const { reports, loading: reportsLoading, create, save, submit, remove } = useMyReports(
+    profile?.id ?? null,
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
-  const [studentName, setStudentName] = useState("我");
 
   const userId = currentUser?.id ?? "";
-
-  // Fetch student name
-  useEffect(() => {
-    if (!studentId) return;
-    fetch(import.meta.env.BASE_URL.replace(/\/$/, "") + `/api/team/members/${studentId}`)
-      .then((r) => r.json())
-      .then((d) => setStudentName(d.name ?? "我"))
-      .catch(() => {});
-  }, [studentId]);
+  const studentId = profile?.id ?? "";
+  const studentName = profile?.name ?? "我";
+  const loading = profileLoading || reportsLoading;
 
   const selectedReport = reports.find((r) => r.id === selectedId) ?? null;
 
@@ -165,12 +109,42 @@ export function MyReportsPage() {
     setSelectedId(updated.id);
   };
 
+  // Profile loading state
+  if (profileLoading) {
+    return (
+      <AppLayout title="我的周报">
+        <div className="flex h-full items-center justify-center">
+          <p className="text-sm text-gray-400">加载中…</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // No student profile bound to this account
+  if (!profile) {
+    return (
+      <AppLayout title="我的周报">
+        <div className="flex h-full items-center justify-center">
+          <div className="bg-white rounded-xl border border-gray-200 p-8 w-96 text-center">
+            <div className="w-10 h-10 rounded-full bg-yellow-50 border border-yellow-200 flex items-center justify-center mx-auto mb-4">
+              <span className="text-yellow-600 text-lg">!</span>
+            </div>
+            <h3 className="text-base font-semibold text-gray-800 mb-1">账号未绑定学生档案</h3>
+            <p className="text-sm text-gray-500">
+              {profileError
+                ? "加载学生档案时出错，请刷新页面重试。"
+                : "你的账号尚未与学生档案关联。请联系导师完成绑定后再访问此页面。"}
+            </p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout title="我的周报">
       <div className="flex h-full -mx-8 -my-8">
-        {!studentId ? (
-          <StudentPicker onSelect={setStudentId} />
-        ) : showNewForm ? (
+        {showNewForm ? (
           <NewReportForm
             onConfirm={handleNewConfirm}
             onCancel={() => setShowNewForm(false)}

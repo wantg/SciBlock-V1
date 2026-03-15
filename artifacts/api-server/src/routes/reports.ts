@@ -1,17 +1,19 @@
 /**
  * 周报路由
  *
- * GET    /reports                — 学生查看自己的周报列表
+ * GET    /reports                — 按角色分流:
+ *                                   student  → 从 JWT userId 解析 studentId，返回自己的周报
+ *                                   instructor → 接受 ?studentId=xxx 查指定人
  * GET    /reports/team           — 导师查看全团队周报（按周筛选）
  * GET    /reports/:id            — 查看单条周报
- * POST   /reports                — 创建周报
+ * POST   /reports                — 创建周报（instructor；学生通过 userId→studentId 自动填充）
  * PATCH  /reports/:id            — 更新周报内容 / 状态
  * DELETE /reports/:id            — 删除周报
  * GET    /reports/:id/comments   — 查看评论
  * POST   /reports/:id/comments   — 添加评论
  *
  * 所有路由均受 requireAuth 保护（在 routes/index.ts 统一注册）。
- * 用户身份从 res.locals.userId 读取。
+ * 用户身份从 res.locals.userId / role 读取。
  * 写操作（POST、PATCH、DELETE、comments POST）限 instructor 角色。
  */
 
@@ -20,28 +22,79 @@ import { db } from "@workspace/db";
 import { weeklyReportsTable, reportCommentsTable, studentsTable } from "@workspace/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { requireInstructor } from "../middleware/requireAuth";
+import { getStudentByUserId } from "../services/student.service";
 
 const router = Router();
 
 // ---------------------------------------------------------------------------
-// Student-side: list own reports
-// GET /reports?studentId=xxx
+// GET /reports
+//
+// Role-based student resolution:
+//
+//   student role:
+//     Ignores any ?studentId query param (even if supplied).
+//     Looks up the caller's student profile via userId → students.user_id.
+//     Returns 409 if the user account has no bound student profile.
+//
+//   instructor role:
+//     Accepts optional ?studentId=xxx to filter to a specific student.
+//     Omitting studentId returns all reports across the team.
+//
+// TRANSITION: The ?studentId param path for instructors is retained while
+// student-role user binding is rolled out.  Once all student accounts are
+// bound, the param path can be made mandatory.
 // ---------------------------------------------------------------------------
 router.get("/", async (req, res) => {
-  const { studentId } = req.query as { studentId?: string };
-  if (!studentId) {
-    res.status(400).json({ message: "studentId is required" });
+  const role = res.locals.role as string;
+
+  if (role === "student") {
+    // Derive studentId from the authenticated user's binding.
+    let student;
+    try {
+      student = await getStudentByUserId(res.locals.userId);
+    } catch (err) {
+      console.error("[reports] GET / student lookup error:", err);
+      res.status(500).json({ message: "Failed to resolve student profile" });
+      return;
+    }
+    if (!student) {
+      res.status(409).json({
+        error: "no_student_binding",
+        message: "Your account is not linked to a student profile. Please contact your instructor.",
+      });
+      return;
+    }
+
+    try {
+      const reports = await db
+        .select()
+        .from(weeklyReportsTable)
+        .where(eq(weeklyReportsTable.studentId, student.id))
+        .orderBy(desc(weeklyReportsTable.weekStart));
+      res.json(reports);
+    } catch (err) {
+      console.error("[reports] GET / (student) fetch error:", err);
+      res.status(500).json({ message: "Failed to fetch reports" });
+    }
     return;
   }
+
+  // Instructor path — optional ?studentId filter.
+  const { studentId } = req.query as { studentId?: string };
   try {
-    const reports = await db
-      .select()
-      .from(weeklyReportsTable)
-      .where(eq(weeklyReportsTable.studentId, studentId))
-      .orderBy(desc(weeklyReportsTable.weekStart));
+    const reports = studentId
+      ? await db
+          .select()
+          .from(weeklyReportsTable)
+          .where(eq(weeklyReportsTable.studentId, studentId))
+          .orderBy(desc(weeklyReportsTable.weekStart))
+      : await db
+          .select()
+          .from(weeklyReportsTable)
+          .orderBy(desc(weeklyReportsTable.weekStart));
     res.json(reports);
   } catch (err) {
-    console.error("[reports] GET / error:", err);
+    console.error("[reports] GET / (instructor) fetch error:", err);
     res.status(500).json({ message: "Failed to fetch reports" });
   }
 });
@@ -102,6 +155,8 @@ router.get("/:id", async (req, res) => {
 // ---------------------------------------------------------------------------
 // Create report
 // POST /reports
+//
+// instructor: must supply studentId in body
 // ---------------------------------------------------------------------------
 router.post("/", requireInstructor, async (req, res) => {
   const { studentId, title, weekStart, weekEnd, contentJson, status, content } = req.body as {

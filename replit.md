@@ -37,10 +37,11 @@ The project is a pnpm monorepo with `artifacts/` (deployable services) and `lib/
 
 - **Framework**: Express 5
 - **Port**: `PORT` env var (default 8080); Replit routes all `/api/*` here
-- **Auth**: Stateless — `X-User-Id` header set by client (legacy) + JWT forwarded to Go
+- **Auth**: Stateless JWT — `Authorization: Bearer <token>` on all protected routes; `requireAuth` middleware injects `res.locals.userId / role / email / name`; `requireInstructor` guards write operations
 - **Password hashing**: bcrypt
 - **Database**: `@workspace/db` (Drizzle ORM over PostgreSQL)
-- **Routes**: `src/routes/` — messages, team, reports, AI chat, weekly-reports
+- **Layered architecture**: `src/routes/` (HTTP only) → `src/services/` (business logic) → `src/repositories/` (DB access). No cross-layer shortcuts.
+- **Routes**: `src/routes/` — messages, team, reports, users (new), AI chat
 - **Go API proxy**: `http-proxy-middleware` forwards these prefixes to Go:
   - `POST /api/auth/login` → Go (JWT issuance)
   - `GET  /api/auth/me`    → Go (JWT verification)
@@ -48,6 +49,9 @@ The project is a pnpm monorepo with `artifacts/` (deployable services) and `lib/
   - `/api/scinotes/*`      → Go (SciNote CRUD)
   - `/api/experiments/*`   → Go (ExperimentRecord CRUD)
 - **Owns tables**: `users` (shared), `students`, `papers`, `weekly_reports`, `report_comments`, `messages`
+- **Key middleware**: `requireAuth` (JWT → res.locals), `requireInstructor` (role guard, placed after requireAuth)
+- **Student identity resolution**: `GET /api/users/me/student` → returns student profile bound to current user's account; `GET /api/reports` role-branches on `res.locals.role`: students get their own reports via JWT→userId→studentId lookup; instructors accept optional `?studentId=` param
+- **`students.user_id`**: nullable text, unique; links `users.id` → `students.user_id`; seed binding: `demo@sciblock.com` → 李婷 (set via SQL). TRANSITION: populated via seed/admin SQL; long-term should use Drizzle migration files.
 
 ## Go API Server (`artifacts/go-api`)
 

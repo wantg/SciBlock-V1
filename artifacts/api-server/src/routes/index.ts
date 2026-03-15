@@ -7,6 +7,7 @@ import aiRouter from "./ai";
 import messagesRouter from "./messages";
 import teamRouter from "./team";
 import reportsRouter from "./reports";
+import usersRouter from "./users";
 
 const router: IRouter = Router();
 
@@ -21,5 +22,6 @@ router.use("/ai", aiRouter);
 router.use("/messages", requireAuth, messagesRouter);
 router.use("/team",     requireAuth, teamRouter);
 router.use("/reports",  requireAuth, reportsRouter);
+router.use("/users",    requireAuth, usersRouter);
 
 export default router;

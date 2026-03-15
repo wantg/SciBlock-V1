@@ -4,9 +4,11 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 // Storage keys
 // ---------------------------------------------------------------------------
 
-const TOKEN_KEY    = "sciblock:token";
-const USER_KEY     = "sciblock:currentUser";
-const LOGIN_PATH   = `${BASE}/login`;
+const TOKEN_KEY      = "sciblock:token";
+const USER_KEY       = "sciblock:currentUser";
+// TRANSITION: removed once all student accounts have a confirmed user_id binding.
+const STUDENT_ID_KEY = "sciblock:myStudentId";
+const LOGIN_PATH     = `${BASE}/login`;
 
 // ---------------------------------------------------------------------------
 // Token storage helpers
@@ -48,6 +50,9 @@ export function clearSession(): void {
   try {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    // TRANSITION: Remove the legacy manual student-picker key if present.
+    // This key is no longer written after the useCurrentStudentProfile migration.
+    localStorage.removeItem(STUDENT_ID_KEY);
   } catch {
     // ignore
   }

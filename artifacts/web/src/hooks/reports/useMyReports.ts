@@ -5,30 +5,51 @@ import {
   updateReport,
   deleteReport,
 } from "@/api/weeklyReport";
+import { fetchMyStudentProfile, type StudentProfile } from "@/api/users";
 import type {
   WeeklyReport,
-  WeeklyReportStatus,
   WeeklyReportContent,
   CreateWeeklyReportPayload,
 } from "@/types/weeklyReport";
 import { getWeekMonday, getWeekSunday } from "@/types/weeklyReport";
 
-const LS_STUDENT_KEY = "sciblock:myStudentId";
+// ---------------------------------------------------------------------------
+// useCurrentStudentProfile
+//
+// Resolves the student profile bound to the current user account by calling
+// GET /api/users/me/student.  Returns null when no binding exists — callers
+// must surface a meaningful error in that case (not render an empty list).
+// ---------------------------------------------------------------------------
 
-export function useMyStudentId() {
-  const [studentId, setStudentIdState] = useState<string | null>(
-    () => localStorage.getItem(LS_STUDENT_KEY),
-  );
-  const setStudentId = useCallback((id: string) => {
-    localStorage.setItem(LS_STUDENT_KEY, id);
-    setStudentIdState(id);
-  }, []);
-  const clearStudentId = useCallback(() => {
-    localStorage.removeItem(LS_STUDENT_KEY);
-    setStudentIdState(null);
-  }, []);
-  return { studentId, setStudentId, clearStudentId };
+interface UseStudentProfileReturn {
+  profile: StudentProfile | null;
+  loading: boolean;
+  error: string | null;
 }
+
+export function useCurrentStudentProfile(): UseStudentProfileReturn {
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchMyStudentProfile()
+      .then((p) => { setProfile(p); setError(null); })
+      .catch(() => setError("无法加载学生档案"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { profile, loading, error };
+}
+
+// ---------------------------------------------------------------------------
+// useMyReports
+//
+// Manages CRUD for the current student's weekly reports.
+// studentId is the students.id value (not the user's id) — pass profile?.id
+// from useCurrentStudentProfile.
+// ---------------------------------------------------------------------------
 
 interface UseMyReportsReturn {
   reports: WeeklyReport[];
@@ -51,7 +72,7 @@ export function useMyReports(studentId: string | null): UseMyReportsReturn {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchMyReports(studentId);
+      const data = await fetchMyReports();
       setReports(data);
     } catch {
       setError("加载周报失败");
@@ -66,7 +87,7 @@ export function useMyReports(studentId: string | null): UseMyReportsReturn {
 
   const create = useCallback(
     async (title: string, weekStart: string, weekEnd: string) => {
-      if (!studentId) throw new Error("No student selected");
+      if (!studentId) throw new Error("No student profile bound to this account");
       const payload: CreateWeeklyReportPayload = {
         studentId,
         title,

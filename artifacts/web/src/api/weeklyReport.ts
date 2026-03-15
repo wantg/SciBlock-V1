@@ -11,8 +11,13 @@ import type {
 // Student-side
 // ---------------------------------------------------------------------------
 
-export function fetchMyReports(studentId: string): Promise<WeeklyReport[]> {
-  return apiFetch<WeeklyReport[]>(`/reports?studentId=${encodeURIComponent(studentId)}`);
+/**
+ * Fetches the current user's own weekly reports.
+ * The backend derives the student identity from the JWT — no studentId param needed.
+ * Returns 409 (surfaced as ApiError) when the user account has no student binding.
+ */
+export function fetchMyReports(): Promise<WeeklyReport[]> {
+  return apiFetch<WeeklyReport[]>("/reports");
 }
 
 // ---------------------------------------------------------------------------
