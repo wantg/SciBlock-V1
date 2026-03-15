@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import { useParams } from "wouter";
-import { FlaskConical } from "lucide-react";
+import { FlaskConical, Plus } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSciNoteStore } from "@/contexts/SciNoteStoreContext";
 import { useTrash } from "@/contexts/TrashContext";
@@ -10,20 +10,49 @@ import { wizardToModules } from "@/data/workbenchUtils";
 import type { ExperimentRecord } from "@/types/workbench";
 
 // ---------------------------------------------------------------------------
+// Empty state — shown when no experiments exist for this SciNote
+// ---------------------------------------------------------------------------
+
+function NoExperimentsState() {
+  const { createNewRecord } = useWorkbench();
+  return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[320px] gap-4">
+      <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center">
+        <FlaskConical size={26} className="text-gray-300" />
+      </div>
+      <div className="text-center">
+        <p className="text-sm font-medium text-gray-500 mb-1">还没有实验记录</p>
+        <p className="text-xs text-gray-400">创建第一条实验记录，开始记录你的实验过程</p>
+      </div>
+      <button
+        onClick={createNewRecord}
+        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-700 rounded-lg transition-colors"
+      >
+        <Plus size={15} />
+        新建实验记录
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Inner layout — runs inside WorkbenchProvider to read the live title
 // ---------------------------------------------------------------------------
 
 /**
  * WorkbenchAppLayout — reads current record title from WorkbenchContext
  * and forwards it to AppLayout's title prop in real time.
+ * Shows an empty state when the API confirms no experiments exist yet.
  */
 function WorkbenchAppLayout() {
-  const { currentRecord } = useWorkbench();
-  const pageTitle = currentRecord.title.trim() || "实验记录";
+  const { currentRecord, records } = useWorkbench();
+  const pageTitle = records.length > 0
+    ? (currentRecord.title.trim() || "实验记录")
+    : "实验记录";
 
   return (
     <AppLayout title={pageTitle} noPadding>
-      <WorkbenchLayout />
+      {records.length === 0 ? <NoExperimentsState /> : <WorkbenchLayout />}
     </AppLayout>
   );
 }

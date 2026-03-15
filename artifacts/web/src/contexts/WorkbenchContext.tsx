@@ -45,6 +45,24 @@ import {
 } from "@/api/experiments";
 
 // ---------------------------------------------------------------------------
+// Empty-record sentinel — used as a safe fallback when records = [].
+// Consumers must check records.length > 0 before treating currentRecord as real.
+// ---------------------------------------------------------------------------
+const EMPTY_RECORD: ExperimentRecord = {
+  id: "__empty__",
+  sciNoteId: "",
+  title: "",
+  purposeInput: undefined,
+  experimentStatus: "探索中",
+  experimentCode: "",
+  tags: [],
+  inheritedOntologyVersionId: "",
+  currentModules: [],
+  editorContent: "",
+  createdAt: new Date().toISOString(),
+};
+
+// ---------------------------------------------------------------------------
 // Context shape
 // ---------------------------------------------------------------------------
 
@@ -209,10 +227,10 @@ export function WorkbenchProvider({
   }, [sciNoteId, records]);
 
   const [currentRecordId, setCurrentRecordId] = useState<string>(
-    () => records[0].id,
+    () => records[0]?.id ?? "",
   );
 
-  const currentRecord = records.find((r) => r.id === currentRecordId) ?? records[0];
+  const currentRecord = records.find((r) => r.id === currentRecordId) ?? records[0] ?? EMPTY_RECORD;
 
   // Layout
   const [focusMode, setFocusMode] = useState<WorkbenchFocusMode>("balanced");
@@ -267,39 +285,10 @@ export function WorkbenchProvider({
         if (cancelled) return;
 
         if (res.items.length === 0) {
-          // First visit: no experiments in DB yet.
-          // POST the locally-generated seed record to establish it server-side.
-          // Use a fallback title because Go requires a non-empty title field.
-          setRecords((prev) => {
-            const seed = prev[0];
-            if (!seed) return prev;
-            // Async POST — we only swap the ID, preserving local content.
-            createExperiment(sciNoteId, {
-              title: seed.title || "未命名实验",
-              purposeInput: seed.purposeInput,
-              experimentStatus: seed.experimentStatus,
-              experimentCode: seed.experimentCode,
-              tags: seed.tags,
-              currentModules: seed.currentModules,
-              inheritedVersionId: seed.inheritedOntologyVersionId,
-            })
-              .then((serverRecord) => {
-                if (cancelled) return;
-                // Only swap the ID — preserve all local content the user may have edited
-                setRecords((p) =>
-                  p.map((r) =>
-                    r.id === seed.id ? { ...r, id: serverRecord.id } : r,
-                  ),
-                );
-                setCurrentRecordId((prev) =>
-                  prev === seed.id ? serverRecord.id : prev,
-                );
-              })
-              .catch(() => {
-                // Keep local seed record — offline graceful degradation
-              });
-            return prev; // no immediate change; wait for POST
-          });
+          // First visit confirmed by API: no experiments exist on the server.
+          // Clear the local seed record and show an empty state.
+          // The user must explicitly click "+" to create their first experiment.
+          setRecords([]);
           return;
         }
 

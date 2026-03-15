@@ -78,9 +78,9 @@ export function apiResponseToRecord(api: ExperimentApiResponse): ExperimentRecor
 
 export async function listExperiments(
   sciNoteId: string,
-  opts?: { includeDeleted?: boolean },
+  opts?: { deletedOnly?: boolean },
 ): Promise<ListExperimentsResponse> {
-  const params = opts?.includeDeleted ? "?includeDeleted=true" : "";
+  const params = opts?.deletedOnly ? "?deleted=true" : "";
   return apiFetch<ListExperimentsResponse>(
     `/scinotes/${sciNoteId}/experiments${params}`,
   );
