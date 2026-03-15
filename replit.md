@@ -11,6 +11,7 @@ Key capabilities include:
 - Team member management: invite students, student card grid, per-student detail with 5 tabs (info/papers/thesis/records/reports).
 - Messaging inbox: invitation, comment, and share-request notifications.
 - Real-time clock widget with 12/24h toggle.
+- Weekly report system: student side (`/personal/my-reports`) for creating/submitting structured weekly reports; instructor side (`/home/reports`) for reviewing all students' reports by week with status management and comment threads. Status flow: draft → submitted → under_review → needs_revision / reviewed.
 
 The project aims to provide a comprehensive digital lab notebook solution, enhancing productivity and reproducibility in scientific research.
 

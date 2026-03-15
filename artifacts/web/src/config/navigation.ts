@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Home, Mail, Users, FileText } from "lucide-react";
+import { Home, Mail, Users, FileText, ClipboardList } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -32,8 +32,8 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: "团队",
     items: [
-      { label: "Members", href: "/home/members", Icon: Users },
-      { label: "Reports", href: "/home/reports", Icon: FileText },
+      { label: "成员管理", href: "/home/members", Icon: Users },
+      { label: "周报管理", href: "/home/reports", Icon: ClipboardList },
     ],
   },
   {
@@ -41,4 +41,9 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [], // injected at runtime by AppSidebar via useSciNotes
     action: { label: "新建 SciNote", href: "/personal/new-experiment" },
   },
+];
+
+// Static personal nav items (rendered in AppSidebar above SciNotes)
+export const PERSONAL_STATIC_NAV: NavItem[] = [
+  { label: "我的周报", href: "/personal/my-reports", Icon: FileText },
 ];

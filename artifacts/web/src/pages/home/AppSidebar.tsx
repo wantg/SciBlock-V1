@@ -1,7 +1,7 @@
 import React from "react";
 import { useLocation, Link } from "wouter";
 import { LayoutGrid, Plus, BookOpen, Trash2 } from "lucide-react";
-import { TOP_NAV, NAV_GROUPS } from "@/config/navigation";
+import { TOP_NAV, NAV_GROUPS, PERSONAL_STATIC_NAV } from "@/config/navigation";
 import { useSciNoteStore } from "@/contexts/SciNoteStoreContext";
 import { useNewExperimentDraft } from "@/contexts/NewExperimentDraftContext";
 import { useSciNoteActions } from "@/hooks/useSciNoteActions";
@@ -85,6 +85,16 @@ export function AppSidebar() {
           <div key={group.title}>
             <GroupHeader group={group} />
             <div className="flex flex-col gap-0.5">
+
+              {/* Static personal nav (e.g. 我的周报) */}
+              {group.title === "个人" &&
+                PERSONAL_STATIC_NAV.map((item) => (
+                  <NavLink
+                    key={item.href}
+                    item={item}
+                    active={location === item.href}
+                  />
+                ))}
 
               {/* In-progress wizard draft (no more-menu) */}
               {group.title === "个人" && draftItem && (

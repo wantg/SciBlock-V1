@@ -55,7 +55,16 @@ export const weeklyReportsTable = pgTable("weekly_reports", {
   content: text("content").notNull().default(""),
   /** ISO date YYYY-MM-DD for the start of the week */
   weekStart: text("week_start").notNull(),
-  submittedAt: timestamp("submitted_at").notNull().defaultNow(),
+  /** ISO date YYYY-MM-DD for the end of the week (Sunday) */
+  weekEnd: text("week_end"),
+  /** 'draft' | 'submitted' | 'under_review' | 'needs_revision' | 'reviewed' */
+  status: text("status").notNull().default("submitted"),
+  /** JSON-stringified ReportContent (structured fields) */
+  contentJson: text("content_json"),
+  submittedAt: timestamp("submitted_at"),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export type WeeklyReport = typeof weeklyReportsTable.$inferSelect;

@@ -16,6 +16,8 @@ import { SciNoteDetailPage } from "@/pages/personal/SciNoteDetailPage";
 import { ExperimentDetailPage } from "@/pages/personal/ExperimentDetailPage";
 import { ExperimentWorkbenchPage } from "@/pages/personal/workbench/ExperimentWorkbenchPage";
 import { TrashPage } from "@/pages/personal/trash/TrashPage";
+import { MyReportsPage } from "@/pages/personal/reports/MyReportsPage";
+import { TeamReportsPage } from "@/pages/team/reports/TeamReportsPage";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +35,10 @@ function AuthenticatedRouter() {
         {/* Team members */}
         <Route path="/home/members/:id" component={MemberDetailPage} />
         <Route path="/home/members" component={MembersPage} />
+        {/* Team reports (instructor view) */}
+        <Route path="/home/reports" component={TeamReportsPage} />
+        {/* Personal: my weekly reports (student side) */}
+        <Route path="/personal/my-reports" component={MyReportsPage} />
         <Route path="/personal/new-experiment" component={NewExperimentPage} />
         {/* Reinitialize wizard for an existing SciNote */}
         <Route path="/personal/reinitialize/:id" component={ReinitializeExperimentPage} />
