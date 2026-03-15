@@ -17,12 +17,13 @@
  *   └─ ChatInput ──────────────────────────────────┘
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Bot, Trash2, FlaskConical } from "lucide-react";
 import { useWorkbench } from "../../../../contexts/WorkbenchContext";
 import { ChatMessageBubble } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { useAiChat } from "./useAiChat";
+import { fetchAiStatus } from "../../../../api/aiChat";
 import type { OntologyModule } from "../../../../types/workbench";
 
 // ---------------------------------------------------------------------------
@@ -87,6 +88,25 @@ const QUICK_STARTERS = [
 ];
 
 // ---------------------------------------------------------------------------
+// AiUnconfigured — shown when /api/ai/status returns available: false
+// ---------------------------------------------------------------------------
+
+function AiUnconfigured() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full px-4 gap-3 text-center">
+      <Bot size={24} className="text-gray-300" />
+      <p className="text-xs font-semibold text-gray-500">AI 助手未配置</p>
+      <p className="text-[10px] text-gray-400 leading-relaxed">
+        管理员尚未配置 AI 服务密钥。<br />
+        请设置 <code className="bg-gray-100 px-1 rounded">DASHSCOPE_API_KEY</code>（千问）<br />
+        或 <code className="bg-gray-100 px-1 rounded">OPENAI_API_KEY</code>（OpenAI）<br />
+        后重启服务器。
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // AiPanel
 // ---------------------------------------------------------------------------
 
@@ -108,6 +128,13 @@ export function AiPanel({ isOpen }: Props) {
   const { state, send, clear, canSend } = useAiChat(systemContext);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // null = still checking; true/false = known state
+  const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetchAiStatus().then(({ available }) => setAiAvailable(available));
+  }, []);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [state.messages]);
@@ -124,7 +151,7 @@ export function AiPanel({ isOpen }: Props) {
           <Bot size={14} className="text-gray-700" />
           <span className="text-xs font-semibold text-gray-800">AI 助手</span>
         </div>
-        {!isEmpty && (
+        {!isEmpty && aiAvailable !== false && (
           <button
             onClick={clear}
             title="清空对话"
@@ -135,59 +162,66 @@ export function AiPanel({ isOpen }: Props) {
         )}
       </div>
 
-      {/* ── Experiment context badge ── */}
-      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border-b border-gray-100 flex-shrink-0">
-        <FlaskConical size={10} className="text-gray-400 flex-shrink-0" />
-        <span className="text-[10px] text-gray-500 truncate" title={currentRecord.title}>
-          {currentRecord.title}
-        </span>
-      </div>
-
-      {/* ── Message list ── */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3 min-h-0">
-        {isEmpty ? (
-          /* Empty state: welcome + quick-start chips */
-          <div className="flex flex-col gap-3 mt-2">
-            <p className="text-[11px] text-gray-500 text-center leading-relaxed">
-              您好！我是 SciBlock AI 助手。<br />
-              基于当前实验上下文，我可以帮您分析数据、解答问题。
-            </p>
-            <div className="flex flex-col gap-1.5">
-              {QUICK_STARTERS.map((q) => (
-                <button
-                  key={q}
-                  onClick={() => send(q)}
-                  disabled={!canSend}
-                  className="text-left text-[10px] text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg px-2.5 py-1.5 transition-colors leading-snug"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
+      {/* ── Not configured state ── */}
+      {aiAvailable === false ? (
+        <AiUnconfigured />
+      ) : (
+        <>
+          {/* ── Experiment context badge ── */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border-b border-gray-100 flex-shrink-0">
+            <FlaskConical size={10} className="text-gray-400 flex-shrink-0" />
+            <span className="text-[10px] text-gray-500 truncate" title={currentRecord.title}>
+              {currentRecord.title}
+            </span>
           </div>
-        ) : (
-          state.messages.map((msg) => (
-            <ChatMessageBubble key={msg.id} message={msg} />
-          ))
-        )}
-        <div ref={bottomRef} />
-      </div>
 
-      {/* ── Error banner ── */}
-      {state.error && (
-        <div className="mx-3 mb-2 px-2.5 py-2 bg-red-50 border border-red-200 rounded-lg text-[10px] text-red-600 leading-snug flex-shrink-0">
-          {state.error}
-        </div>
+          {/* ── Message list ── */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3 min-h-0">
+            {isEmpty ? (
+              /* Empty state: welcome + quick-start chips */
+              <div className="flex flex-col gap-3 mt-2">
+                <p className="text-[11px] text-gray-500 text-center leading-relaxed">
+                  您好！我是 SciBlock AI 助手。<br />
+                  基于当前实验上下文，我可以帮您分析数据、解答问题。
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {QUICK_STARTERS.map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => send(q)}
+                      disabled={!canSend}
+                      className="text-left text-[10px] text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg px-2.5 py-1.5 transition-colors leading-snug"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              state.messages.map((msg) => (
+                <ChatMessageBubble key={msg.id} message={msg} />
+              ))
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* ── Error banner ── */}
+          {state.error && (
+            <div className="mx-3 mb-2 px-2.5 py-2 bg-red-50 border border-red-200 rounded-lg text-[10px] text-red-600 leading-snug flex-shrink-0">
+              {state.error}
+            </div>
+          )}
+
+          {/* ── Input ── */}
+          <div className="flex-shrink-0">
+            <ChatInput
+              onSend={send}
+              disabled={!canSend}
+              placeholder="输入实验相关问题，Enter 发送…"
+            />
+          </div>
+        </>
       )}
-
-      {/* ── Input ── */}
-      <div className="flex-shrink-0">
-        <ChatInput
-          onSend={send}
-          disabled={!canSend}
-          placeholder="输入实验相关问题，Enter 发送…"
-        />
-      </div>
     </div>
   );
 }

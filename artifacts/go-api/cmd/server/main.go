@@ -14,118 +14,127 @@
 package main
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
-	"log"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+        "context"
+        "database/sql"
+        "fmt"
+        "log"
+        "net/http"
+        "os"
+        "os/signal"
+        "syscall"
+        "time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
+        _ "github.com/jackc/pgx/v5/stdlib"
+        "github.com/pressly/goose/v3"
 
-	"sciblock/go-api/internal/config"
-	"sciblock/go-api/internal/db"
-	"sciblock/go-api/internal/handler"
-	"sciblock/go-api/internal/repository"
-	"sciblock/go-api/internal/router"
-	"sciblock/go-api/internal/service"
+        "sciblock/go-api/internal/config"
+        "sciblock/go-api/internal/db"
+        "sciblock/go-api/internal/handler"
+        "sciblock/go-api/internal/repository"
+        "sciblock/go-api/internal/router"
+        "sciblock/go-api/internal/service"
 )
 
 func main() {
-	cfg := config.Load()
+        cfg := config.Load()
 
-	// -------------------------------------------------------------------------
-	// Database
-	// -------------------------------------------------------------------------
-	pool, err := db.Connect(cfg.DatabaseURL)
-	if err != nil {
-		log.Fatalf("database connection failed: %v", err)
-	}
-	defer pool.Close()
-	log.Println("database connected")
+        // -------------------------------------------------------------------------
+        // Production safety checks — warn early, before any traffic is served.
+        // -------------------------------------------------------------------------
+        if !cfg.IsDevelopment() && len(cfg.CORSOrigins) == 0 {
+                log.Println("WARN: CORS_ORIGINS is not set; the Go API accepts requests from " +
+                        "ALL origins (Access-Control-Allow-Origin: *). " +
+                        "Set CORS_ORIGINS=https://your-frontend.example.com in production.")
+        }
 
-	// -------------------------------------------------------------------------
-	// Migrations (optional — only when AUTO_MIGRATE=true)
-	// -------------------------------------------------------------------------
-	if cfg.AutoMigrate {
-		log.Println("AUTO_MIGRATE=true: running goose migrations...")
-		if err := runMigrations(cfg.DatabaseURL); err != nil {
-			log.Fatalf("migration failed: %v", err)
-		}
-		log.Println("migrations complete")
-	} else {
-		log.Println("AUTO_MIGRATE not set: skipping migrations (run `make migrate` manually)")
-	}
+        // -------------------------------------------------------------------------
+        // Database
+        // -------------------------------------------------------------------------
+        pool, err := db.Connect(cfg.DatabaseURL)
+        if err != nil {
+                log.Fatalf("database connection failed: %v", err)
+        }
+        defer pool.Close()
+        log.Println("database connected")
 
-	// -------------------------------------------------------------------------
-	// Dependency wiring: repository → service → handler
-	// -------------------------------------------------------------------------
-	userRepo := repository.NewUserRepository(pool)
-	sciNoteRepo := repository.NewSciNoteRepository(pool)
-	experimentRepo := repository.NewExperimentRepository(pool)
+        // -------------------------------------------------------------------------
+        // Migrations (optional — only when AUTO_MIGRATE=true)
+        // -------------------------------------------------------------------------
+        if cfg.AutoMigrate {
+                log.Println("AUTO_MIGRATE=true: running goose migrations...")
+                if err := runMigrations(cfg.DatabaseURL); err != nil {
+                        log.Fatalf("migration failed: %v", err)
+                }
+                log.Println("migrations complete")
+        } else {
+                log.Println("AUTO_MIGRATE not set: skipping migrations (run `make migrate` manually)")
+        }
 
-	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiryHours)
-	sciNoteSvc := service.NewSciNoteService(sciNoteRepo)
-	experimentSvc := service.NewExperimentService(experimentRepo, sciNoteRepo)
+        // -------------------------------------------------------------------------
+        // Dependency wiring: repository → service → handler
+        // -------------------------------------------------------------------------
+        userRepo := repository.NewUserRepository(pool)
+        sciNoteRepo := repository.NewSciNoteRepository(pool)
+        experimentRepo := repository.NewExperimentRepository(pool)
 
-	authH := handler.NewAuthHandler(authSvc)
-	sciNoteH := handler.NewSciNoteHandler(sciNoteSvc)
-	experimentH := handler.NewExperimentHandler(experimentSvc)
+        authSvc := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiryHours)
+        sciNoteSvc := service.NewSciNoteService(sciNoteRepo)
+        experimentSvc := service.NewExperimentService(experimentRepo, sciNoteRepo)
 
-	// -------------------------------------------------------------------------
-	// HTTP server with graceful shutdown
-	// -------------------------------------------------------------------------
-	addr := fmt.Sprintf(":%s", cfg.Port)
-	srv := &http.Server{
-		Addr:         addr,
-		Handler:      router.New(cfg.JWTSecret, authH, sciNoteH, experimentH),
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
+        authH := handler.NewAuthHandler(authSvc)
+        sciNoteH := handler.NewSciNoteHandler(sciNoteSvc)
+        experimentH := handler.NewExperimentHandler(experimentSvc)
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+        // -------------------------------------------------------------------------
+        // HTTP server with graceful shutdown
+        // -------------------------------------------------------------------------
+        addr := fmt.Sprintf(":%s", cfg.Port)
+        srv := &http.Server{
+                Addr:         addr,
+                Handler:      router.New(cfg.JWTSecret, cfg.CORSOrigins, authH, sciNoteH, experimentH),
+                ReadTimeout:  15 * time.Second,
+                WriteTimeout: 30 * time.Second,
+                IdleTimeout:  60 * time.Second,
+        }
 
-	go func() {
-		log.Printf("Go API server listening on %s (env: %s)", addr, cfg.Env)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server error: %v", err)
-		}
-	}()
+        quit := make(chan os.Signal, 1)
+        signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	<-quit
-	log.Println("shutting down...")
+        go func() {
+                log.Printf("Go API server listening on %s (env: %s)", addr, cfg.Env)
+                if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+                        log.Fatalf("server error: %v", err)
+                }
+        }()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+        <-quit
+        log.Println("shutting down...")
 
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("forced shutdown: %v", err)
-	}
-	log.Println("server stopped cleanly")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        defer cancel()
+
+        if err := srv.Shutdown(ctx); err != nil {
+                log.Fatalf("forced shutdown: %v", err)
+        }
+        log.Println("server stopped cleanly")
 }
 
 // runMigrations executes all pending goose migrations.
 // Uses the standard database/sql driver because goose requires it.
 // Migration SQL files are embedded in the db package (internal/db/migrations_embed.go).
 func runMigrations(databaseURL string) error {
-	sqlDB, err := sql.Open("pgx", databaseURL)
-	if err != nil {
-		return fmt.Errorf("open sql.DB for migrations: %w", err)
-	}
-	defer sqlDB.Close()
+        sqlDB, err := sql.Open("pgx", databaseURL)
+        if err != nil {
+                return fmt.Errorf("open sql.DB for migrations: %w", err)
+        }
+        defer sqlDB.Close()
 
-	goose.SetBaseFS(db.MigrationsFS)
-	if err := goose.SetDialect("postgres"); err != nil {
-		return fmt.Errorf("set goose dialect: %w", err)
-	}
-	if err := goose.Up(sqlDB, "migrations"); err != nil {
-		return fmt.Errorf("goose up: %w", err)
-	}
-	return nil
+        goose.SetBaseFS(db.MigrationsFS)
+        if err := goose.SetDialect("postgres"); err != nil {
+                return fmt.Errorf("set goose dialect: %w", err)
+        }
+        if err := goose.Up(sqlDB, "migrations"); err != nil {
+                return fmt.Errorf("goose up: %w", err)
+        }
+        return nil
 }

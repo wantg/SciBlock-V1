@@ -15,6 +15,7 @@ import type {
 } from "../types/aiChat";
 
 const AI_CHAT_ENDPOINT = "/api/ai/chat";
+const AI_STATUS_ENDPOINT = "/api/ai/status";
 
 export class AiApiError extends Error {
   constructor(
@@ -23,6 +24,22 @@ export class AiApiError extends Error {
   ) {
     super(message);
     this.name = "AiApiError";
+  }
+}
+
+/**
+ * Check whether the AI feature is configured on the server.
+ * Safe to call without authentication — the endpoint is public.
+ * Returns { available: false } on any network / parse error so the caller
+ * can treat a failed check the same as "not configured".
+ */
+export async function fetchAiStatus(): Promise<{ available: boolean }> {
+  try {
+    const res = await fetch(AI_STATUS_ENDPOINT);
+    if (!res.ok) return { available: false };
+    return res.json() as Promise<{ available: boolean }>;
+  } catch {
+    return { available: false };
   }
 }
 

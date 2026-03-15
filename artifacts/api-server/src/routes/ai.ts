@@ -149,9 +149,28 @@ async function callOpenAICompatible(
 }
 
 // ---------------------------------------------------------------------------
-// Route handler
+// Routes
 // ---------------------------------------------------------------------------
 
+/**
+ * GET /api/ai/status
+ *
+ * Public endpoint — no authentication required.
+ * Returns whether the AI feature is usable in the current deployment.
+ * The frontend calls this on mount to gate the chat UI: if available is false,
+ * a "not configured" notice is shown instead of a broken chat interface.
+ */
+router.get("/status", (_req, res) => {
+  const available = buildProviderConfig() !== null;
+  res.json({ available });
+});
+
+/**
+ * POST /api/ai/chat
+ *
+ * Accepts a message history + optional experiment context.
+ * Returns 503 ai_not_configured when no API key is set.
+ */
 router.post("/chat", async (req, res) => {
   const { messages, systemContext } = req.body as ChatRequest;
 
