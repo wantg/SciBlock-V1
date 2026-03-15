@@ -157,10 +157,12 @@ router.get("/:id", async (req, res) => {
 // POST /reports
 //
 // instructor: must supply studentId in body
+// student:    studentId is derived from JWT binding; body studentId is ignored
 // ---------------------------------------------------------------------------
-router.post("/", requireInstructor, async (req, res) => {
-  const { studentId, title, weekStart, weekEnd, contentJson, status, content } = req.body as {
-    studentId: string;
+router.post("/", async (req, res) => {
+  const role = res.locals.role as string;
+  const { title, weekStart, weekEnd, contentJson, status, content } = req.body as {
+    studentId?: string;
     title: string;
     weekStart: string;
     weekEnd?: string;
@@ -168,16 +170,49 @@ router.post("/", requireInstructor, async (req, res) => {
     status?: string;
     content?: string;
   };
-  if (!studentId || !title || !weekStart) {
-    res.status(400).json({ message: "studentId, title, weekStart are required" });
+
+  let resolvedStudentId: string;
+
+  if (role === "student") {
+    let student;
+    try {
+      student = await getStudentByUserId(res.locals.userId);
+    } catch (err) {
+      console.error("[reports] POST / student lookup error:", err);
+      res.status(500).json({ message: "Failed to resolve student profile" });
+      return;
+    }
+    if (!student) {
+      res.status(409).json({
+        error: "no_student_binding",
+        message: "Your account is not linked to a student profile. Please contact your instructor.",
+      });
+      return;
+    }
+    resolvedStudentId = student.id;
+  } else if (role === "instructor") {
+    const bodyStudentId = (req.body as { studentId?: string }).studentId;
+    if (!bodyStudentId) {
+      res.status(400).json({ message: "studentId is required" });
+      return;
+    }
+    resolvedStudentId = bodyStudentId;
+  } else {
+    res.status(403).json({ error: "forbidden", message: "This action requires instructor access" });
     return;
   }
+
+  if (!title || !weekStart) {
+    res.status(400).json({ message: "title and weekStart are required" });
+    return;
+  }
+
   try {
     const reportStatus = status ?? "draft";
     const [report] = await db
       .insert(weeklyReportsTable)
       .values({
-        studentId,
+        studentId: resolvedStudentId,
         title,
         weekStart,
         weekEnd: weekEnd ?? undefined,
@@ -197,9 +232,53 @@ router.post("/", requireInstructor, async (req, res) => {
 // ---------------------------------------------------------------------------
 // Update report (content / status)
 // PATCH /reports/:id
+//
+// instructor: can update any report; may set status to "reviewed"
+// student:    can only update their own report; status limited to "draft" / "submitted"
 // ---------------------------------------------------------------------------
-router.patch("/:id", requireInstructor, async (req, res) => {
+router.patch("/:id", async (req, res) => {
+  const role = res.locals.role as string;
   const id = req.params["id"] as string;
+
+  if (role === "student") {
+    let student;
+    try {
+      student = await getStudentByUserId(res.locals.userId);
+    } catch (err) {
+      console.error("[reports] PATCH /:id student lookup error:", err);
+      res.status(500).json({ message: "Failed to resolve student profile" });
+      return;
+    }
+    if (!student) {
+      res.status(409).json({
+        error: "no_student_binding",
+        message: "Your account is not linked to a student profile.",
+      });
+      return;
+    }
+    const [existing] = await db
+      .select()
+      .from(weeklyReportsTable)
+      .where(eq(weeklyReportsTable.id, id))
+      .limit(1);
+    if (!existing) {
+      res.status(404).json({ message: "Report not found" });
+      return;
+    }
+    if (existing.studentId !== student.id) {
+      res.status(403).json({ error: "forbidden", message: "You can only edit your own reports" });
+      return;
+    }
+    const { status } = req.body as { status?: string };
+    if (status && status !== "draft" && status !== "submitted") {
+      res.status(403).json({ error: "forbidden", message: "Students can only save or submit reports" });
+      return;
+    }
+  } else if (role !== "instructor") {
+    res.status(403).json({ error: "forbidden", message: "This action requires instructor access" });
+    return;
+  }
+
   const { title, weekStart, weekEnd, contentJson, status, content } = req.body as {
     title?: string;
     weekStart?: string;
@@ -243,9 +322,48 @@ router.patch("/:id", requireInstructor, async (req, res) => {
 // ---------------------------------------------------------------------------
 // Delete report
 // DELETE /reports/:id
+//
+// instructor: can delete any report
+// student:    can only delete their own report
 // ---------------------------------------------------------------------------
-router.delete("/:id", requireInstructor, async (req, res) => {
+router.delete("/:id", async (req, res) => {
+  const role = res.locals.role as string;
   const id = req.params["id"] as string;
+
+  if (role === "student") {
+    let student;
+    try {
+      student = await getStudentByUserId(res.locals.userId);
+    } catch (err) {
+      console.error("[reports] DELETE /:id student lookup error:", err);
+      res.status(500).json({ message: "Failed to resolve student profile" });
+      return;
+    }
+    if (!student) {
+      res.status(409).json({
+        error: "no_student_binding",
+        message: "Your account is not linked to a student profile.",
+      });
+      return;
+    }
+    const [existing] = await db
+      .select()
+      .from(weeklyReportsTable)
+      .where(eq(weeklyReportsTable.id, id))
+      .limit(1);
+    if (!existing) {
+      res.status(404).json({ message: "Report not found" });
+      return;
+    }
+    if (existing.studentId !== student.id) {
+      res.status(403).json({ error: "forbidden", message: "You can only delete your own reports" });
+      return;
+    }
+  } else if (role !== "instructor") {
+    res.status(403).json({ error: "forbidden", message: "This action requires instructor access" });
+    return;
+  }
+
   try {
     await db.delete(weeklyReportsTable).where(eq(weeklyReportsTable.id, id));
     res.status(204).end();
