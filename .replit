@@ -17,6 +17,26 @@ env = { "CI" = "true" }
 [workflows]
 runButton = "Project"
 
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "artifacts/go-api: Go API"
+
+[[workflows.workflow]]
+name = "artifacts/go-api: Go API"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/go-api && AUTO_MIGRATE=true go run ./cmd/server/main.go"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
@@ -29,6 +49,7 @@ timeoutMs = 20000
 
 [userenv.shared]
 ADMIN_SECRET = "sciblock-admin-dev"
+JWT_SECRET = "sciblock-jwt-dev-secret-change-in-prod"
 
 [nix]
 channel = "stable-25_05"

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { login } from "@/api/auth";
-import { ApiError } from "@/api/client";
+import { ApiError, setStoredToken } from "@/api/client";
 
 const USER_STORAGE_KEY = "sciblock:currentUser";
 
@@ -79,7 +79,9 @@ export function useLogin(): LoginFormState {
     setLoading(true);
     try {
       const result = await login({ email: email.trim(), password });
-      // Persist user info for MessagesContext and other authenticated features
+      // Persist JWT token for all subsequent API calls (Go API).
+      setStoredToken(result.token);
+      // Persist user info for MessagesContext and other authenticated features.
       try {
         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(result.user));
       } catch {

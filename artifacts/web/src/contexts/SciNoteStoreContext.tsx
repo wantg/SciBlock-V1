@@ -4,61 +4,128 @@ import type { WizardFormData } from "@/types/wizardForm";
 import { getExperimentName } from "@/types/experimentFields";
 import { loadSciNotes, saveSciNotes } from "@/data/scinoteStorage";
 import { clearWorkbenchRecords } from "@/data/workbenchStorage";
+import {
+  listSciNotes,
+  createSciNoteApi,
+  updateSciNote,
+  deleteSciNoteApi,
+  type ApiSciNote,
+} from "@/api/scinotes";
 
 /**
  * SciNoteStoreContext — manages the personal SciNote list.
  *
- * Persistence:  SciNote list → localStorage via scinoteStorage (survives refresh).
- * Cleanup hook: deleteSciNote also clears workbench sessionStorage for the
- *               deleted note so orphaned records don't accumulate.
+ * Persistence strategy (API-first, localStorage fallback):
+ *   1. On mount: try GET /api/scinotes first; fall back to localStorage when
+ *      the API is unavailable or the user is not authenticated.
+ *   2. Create:   POST /api/scinotes → returns server UUID → update state.
+ *   3. Rename / Reinitialize: optimistic update (state + localStorage) first,
+ *      then PATCH /api/scinotes/:id in the background (fire-and-forget).
+ *   4. Delete:   optimistic removal from state + localStorage, then
+ *      DELETE /api/scinotes/:id in the background (fire-and-forget).
  *
- * Dependency rule: this context imports from data/ only.
+ * Dependency rule: this context imports from data/ and api/ only.
  *                  It must NOT import from WorkbenchContext or TrashContext.
  */
 
+function apiSciNoteToLocal(n: ApiSciNote): SciNote {
+  return {
+    id: n.id,
+    title: n.title,
+    kind: n.kind === "wizard" ? "wizard" : "placeholder",
+    createdAt: n.createdAt,
+    experimentType: n.experimentType ?? undefined,
+    objective: n.objective ?? undefined,
+    formData: n.formData ?? undefined,
+  };
+}
+
 interface SciNoteStoreContextValue {
   notes: SciNote[];
-  /** Create a new SciNote from wizard form data. Returns the new id. */
-  createSciNote: (formData: WizardFormData) => string;
+  /** True once the API responded successfully on mount. */
+  apiReady: boolean;
+  /** Create a new SciNote from wizard form data. Returns the server-assigned id. */
+  createSciNote: (formData: WizardFormData) => Promise<string>;
   /**
    * Rename an existing SciNote container.
-   * Only title changes — formData is untouched.
+   * Applies an optimistic update immediately; syncs to the API in the background.
    */
   renameSciNote: (id: string, newTitle: string) => void;
   /**
    * Overwrite the formData of an existing SciNote with fresh wizard output.
-   * The note's id, title, kind, and createdAt are all preserved.
+   * Applies an optimistic update immediately; syncs to the API in the background.
    */
   reinitializeSciNote: (id: string, newFormData: WizardFormData) => void;
-  /** Permanently remove a SciNote and clean up its workbench records. */
+  /** Optimistically removes the SciNote and soft-deletes via the API in the background. */
   deleteSciNote: (id: string) => void;
 }
 
 const SciNoteStoreContext = createContext<SciNoteStoreContextValue | null>(null);
 
 export function SciNoteStoreProvider({ children }: { children: React.ReactNode }) {
-  /**
-   * Load initial notes from localStorage on first mount.
-   * Falls back to PLACEHOLDER_SCINOTES when no saved data exists.
-   */
   const [notes, setNotes] = useState<SciNote[]>(loadSciNotes);
+  const [apiReady, setApiReady] = useState(false);
 
-  /**
-   * Persist the SciNote list to localStorage whenever it changes.
-   * This is the only write path — all mutations go through setNotes.
-   */
+  // ---------------------------------------------------------------------------
+  // Bootstrap: try to load from API; stay with localStorage on failure.
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    let cancelled = false;
+    listSciNotes()
+      .then((res) => {
+        if (cancelled) return;
+        const apiNotes = res.items.map(apiSciNoteToLocal);
+        setNotes(apiNotes);
+        saveSciNotes(apiNotes);
+        setApiReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setApiReady(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Keep localStorage in sync on every state change (so the fallback stays fresh).
+  // ---------------------------------------------------------------------------
+
   useEffect(() => {
     saveSciNotes(notes);
   }, [notes]);
 
-  function createSciNote(formData: WizardFormData): string {
-    const id = `exp-${Date.now()}`;
+  // ---------------------------------------------------------------------------
+  // CRUD
+  // ---------------------------------------------------------------------------
+
+  async function createSciNote(formData: WizardFormData): Promise<string> {
     const fields = formData.step2.fields;
+    const title = getExperimentName(fields) || "未命名实验";
+    const experimentType = fields.find((f) => f.name === "实验类型")?.value?.trim() || undefined;
+    const objective = fields.find((f) => f.name === "实验目标")?.value?.trim() || undefined;
+
+    if (apiReady) {
+      const created = await createSciNoteApi({
+        title,
+        kind: "wizard",
+        experimentType,
+        objective,
+        formData,
+      });
+      const newNote = apiSciNoteToLocal(created);
+      setNotes((prev) => [newNote, ...prev]);
+      return newNote.id;
+    }
+
+    // Offline / unauthenticated fallback: local ID, localStorage only.
+    const id = `exp-${Date.now()}`;
     const newNote: SciNote = {
       id,
-      title: getExperimentName(fields) || "未命名实验",
-      experimentType: fields.find((f) => f.name === "实验类型")?.value?.trim() || undefined,
-      objective: fields.find((f) => f.name === "实验目标")?.value?.trim() || undefined,
+      title,
+      experimentType,
+      objective,
       kind: "wizard",
       createdAt: new Date().toISOString(),
       formData,
@@ -71,38 +138,59 @@ export function SciNoteStoreProvider({ children }: { children: React.ReactNode }
     setNotes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, title: newTitle } : n)),
     );
+    if (apiReady) {
+      updateSciNote(id, { title: newTitle }).catch(() => {
+        // fire-and-forget — local state already updated
+      });
+    }
   }
 
   function reinitializeSciNote(id: string, newFormData: WizardFormData) {
     const fields = newFormData.step2.fields;
+    const newTitle = getExperimentName(fields);
+    const experimentType = fields.find((f) => f.name === "实验类型")?.value?.trim() || undefined;
+    const objective = fields.find((f) => f.name === "实验目标")?.value?.trim() || undefined;
+
     setNotes((prev) =>
       prev.map((n) =>
         n.id === id
           ? {
               ...n,
-              title: getExperimentName(fields) || n.title,
-              experimentType: fields.find((f) => f.name === "实验类型")?.value?.trim() || undefined,
-              objective: fields.find((f) => f.name === "实验目标")?.value?.trim() || undefined,
+              title: newTitle || n.title,
+              experimentType,
+              objective,
               formData: newFormData,
-              kind: "wizard",
+              kind: "wizard" as const,
             }
           : n,
       ),
     );
+
+    if (apiReady) {
+      updateSciNote(id, {
+        title: newTitle || undefined,
+        experimentType,
+        objective,
+        formData: newFormData,
+      }).catch(() => {
+        // fire-and-forget
+      });
+    }
   }
 
   function deleteSciNote(id: string) {
-    // Remove the SciNote from the list (triggers persistence via useEffect).
     setNotes((prev) => prev.filter((n) => n.id !== id));
-    // Clean up the orphaned workbench session data for this SciNote.
-    // This call is safe here: clearWorkbenchRecords is a pure data-layer
-    // function — it does not import any context or React code.
     clearWorkbenchRecords(id);
+    if (apiReady) {
+      deleteSciNoteApi(id).catch(() => {
+        // fire-and-forget
+      });
+    }
   }
 
   return (
     <SciNoteStoreContext.Provider
-      value={{ notes, createSciNote, renameSciNote, reinitializeSciNote, deleteSciNote }}
+      value={{ notes, apiReady, createSciNote, renameSciNote, reinitializeSciNote, deleteSciNote }}
     >
       {children}
     </SciNoteStoreContext.Provider>

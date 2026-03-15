@@ -101,10 +101,29 @@ func (s *ExperimentService) SoftDelete(ctx context.Context, id, callerUserID str
 }
 
 // Restore recovers a soft-deleted ExperimentRecord.
+// Returns ErrForbidden when the parent SciNote is itself soft-deleted,
+// because restoring an experiment under a deleted container is ambiguous.
 func (s *ExperimentService) Restore(ctx context.Context, id, callerUserID string) (*domain.ExperimentRecord, error) {
-        if _, err := s.Get(ctx, id, callerUserID); err != nil {
-                return nil, err
+        rec, err := s.repo.GetByID(ctx, id)
+        if err != nil {
+                return nil, fmt.Errorf("get experiment for restore: %w", err)
         }
+        if rec == nil {
+                return nil, ErrNotFound
+        }
+
+        note, err := s.sciNotes.GetByID(ctx, rec.SciNoteID)
+        if err != nil {
+                return nil, fmt.Errorf("get parent scinote for restore: %w", err)
+        }
+        if note == nil || note.UserID != callerUserID {
+                return nil, ErrForbidden
+        }
+        // Reject restore when the parent SciNote has been soft-deleted.
+        if note.IsDeleted {
+                return nil, fmt.Errorf("%w: parent SciNote is deleted; restore the SciNote first", ErrForbidden)
+        }
+
         if err := s.repo.Restore(ctx, id); err != nil {
                 return nil, fmt.Errorf("restore experiment: %w", err)
         }

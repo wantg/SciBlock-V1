@@ -11,7 +11,7 @@ import { WizardShell } from "./new-experiment/WizardShell";
  *
  * Responsibilities specific to this page (vs. ReinitializeExperimentPage):
  *   - Publishes the experiment name to the sidebar draft entry in real time
- *   - On finish: calls createSciNote → navigates to the new note's detail page
+ *   - On finish: awaits createSciNote (may call API) → navigates to the new note
  */
 export function NewExperimentPage() {
   const [, navigate] = useLocation();
@@ -31,8 +31,8 @@ export function NewExperimentPage() {
     return () => setDraftName(null);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleFinish() {
-    const id = createSciNote(wizard.form.data);
+  async function handleFinish() {
+    const id = await createSciNote(wizard.form.data);
     navigate(`/personal/experiment/${id}`);
   }
 
