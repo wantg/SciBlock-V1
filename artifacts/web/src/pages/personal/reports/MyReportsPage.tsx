@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { ReportListPanel } from "./ReportListPanel";
 import { ReportWorkPanel } from "./ReportWorkPanel";
 import { useMyReports, useMyStudentId, getCurrentWeekDefaults } from "@/hooks/reports/useMyReports";
+import { useCurrentUser } from "@/contexts/UserContext";
 import type { WeeklyReport } from "@/types/weeklyReport";
 import { fmtDate } from "@/types/weeklyReport";
 
@@ -130,15 +131,14 @@ function NewReportForm({ onConfirm, onCancel }: NewReportDialogProps) {
 // ---------------------------------------------------------------------------
 
 export function MyReportsPage() {
+  const { currentUser } = useCurrentUser();
   const { studentId, setStudentId } = useMyStudentId();
   const { reports, loading, create, save, submit, remove } = useMyReports(studentId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [studentName, setStudentName] = useState("我");
 
-  const userId = (() => {
-    try { return JSON.parse(localStorage.getItem("sciblock:currentUser") ?? "{}").id ?? ""; } catch { return ""; }
-  })();
+  const userId = currentUser?.id ?? "";
 
   // Fetch student name
   useEffect(() => {

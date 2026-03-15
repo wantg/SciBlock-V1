@@ -1,79 +1,53 @@
 /**
- * calendarRecords.ts — data access layer for the calendar panel.
+ * calendarRecords.ts — data transformation helpers for the calendar panel.
  *
- * Layer: API / data access (no React, no context).
+ * Layer: Pure utilities (no React, no context, no storage access).
  *
- * Reads ALL workbench records stored in sessionStorage (across every SciNote
- * visited in the current browser session) and returns an in-memory index
- * keyed by local date string (YYYY-MM-DD).
+ * Builds an in-memory date index from ExperimentRecord[] provided by
+ * WorkbenchContext. The records are the authoritative in-memory data source;
+ * sessionStorage is only a cache and must not be read directly from here.
  *
- * Migration path to real backend:
- *   Replace the body of `loadAllCalendarRecords` with a fetch() call to
+ * Migration path to cross-SciNote view:
+ *   Replace the records argument with a fetch() call to
  *   GET /api/experiments?fields=id,sciNoteId,title,status,createdAt
+ *   and reconstruct CalendarRecord[] from the response.
  *   The return type and callers do not need to change.
  */
 
 import type { CalendarRecord, DateRecordMap } from "@/types/calendarPanel";
 import type { ExperimentRecord, ExperimentStatus } from "@/types/workbench";
 
-// Must stay in sync with workbenchStorage.ts
-const STORAGE_PREFIX = "sciblock:workbench:";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function toLocalDateStr(isoString: string): string {
-  // Avoids timezone shifts by parsing the date portion directly
-  return isoString.slice(0, 10);
-}
-
-function parseWorkbenchEntry(
-  sciNoteId: string,
-  raw: string,
-): CalendarRecord[] {
-  try {
-    const records = JSON.parse(raw) as ExperimentRecord[];
-    if (!Array.isArray(records)) return [];
-    return records
-      .filter((r) => r?.id && r?.createdAt)
-      .map((r) => ({
-        id: r.id,
-        sciNoteId,
-        title: r.title?.trim() || "（未命名实验）",
-        experimentStatus: (r.experimentStatus ?? "探索中") as ExperimentStatus,
-        createdAt: r.createdAt,
-        dateStr: toLocalDateStr(r.createdAt),
-      }));
-  } catch {
-    return [];
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 /**
- * Scan sessionStorage for all workbench record sets and build a date index.
- * Called on every panel open to pick up newly confirmed records.
+ * Build a date→record index from the given experiment records.
+ * Pure function — no side effects, no storage reads.
+ *
+ * @param records  ExperimentRecord[] from WorkbenchContext (current SciNote).
+ * @param sciNoteId  The SciNote that owns these records.
  */
-export function loadAllCalendarRecords(): DateRecordMap {
+export function buildCalendarRecordMap(
+  records: ExperimentRecord[],
+  sciNoteId: string,
+): DateRecordMap {
   const map: DateRecordMap = new Map();
 
-  for (let i = 0; i < sessionStorage.length; i++) {
-    const key = sessionStorage.key(i);
-    if (!key?.startsWith(STORAGE_PREFIX)) continue;
-
-    const sciNoteId = key.slice(STORAGE_PREFIX.length);
-    const raw = sessionStorage.getItem(key);
-    if (!raw) continue;
-
-    for (const rec of parseWorkbenchEntry(sciNoteId, raw)) {
-      const list = map.get(rec.dateStr) ?? [];
-      list.push(rec);
-      map.set(rec.dateStr, list);
-    }
+  for (const r of records) {
+    if (!r?.id || !r?.createdAt) continue;
+    const dateStr = r.createdAt.slice(0, 10);
+    const cal: CalendarRecord = {
+      id: r.id,
+      sciNoteId,
+      title: r.title?.trim() || "（未命名实验）",
+      experimentStatus: (r.experimentStatus ?? "探索中") as ExperimentStatus,
+      createdAt: r.createdAt,
+      dateStr,
+    };
+    const list = map.get(dateStr) ?? [];
+    list.push(cal);
+    map.set(dateStr, list);
   }
 
   return map;

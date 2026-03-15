@@ -15,7 +15,7 @@ import type { ExperimentStatus } from "@/types/workbench";
 
 /**
  * Lightweight representation of an experiment record used by the calendar.
- * Sourced from sessionStorage via calendarRecords.ts; NOT the full ExperimentRecord.
+ * Derived from ExperimentRecord[] provided by WorkbenchContext; NOT the full ExperimentRecord.
  */
 export interface CalendarRecord {
   id: string;

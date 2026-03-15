@@ -15,9 +15,11 @@ import {
 /**
  * SciNoteStoreContext — manages the personal SciNote list.
  *
- * Persistence strategy (API-first, localStorage fallback):
- *   1. On mount: try GET /api/scinotes first; fall back to localStorage when
- *      the API is unavailable or the user is not authenticated.
+ * Persistence strategy (API-first, localStorage cache):
+ *   1. On mount: start with localStorage cache ([] for new users); then
+ *      GET /api/scinotes replaces state with authoritative data.
+ *      There is no placeholder fallback — an empty API response means
+ *      the user has no SciNotes, which is the correct empty state.
  *   2. Create:   POST /api/scinotes → returns server UUID → update state.
  *   3. Rename / Reinitialize: optimistic update (state + localStorage) first,
  *      then PATCH /api/scinotes/:id in the background (fire-and-forget).
@@ -42,6 +44,8 @@ function apiSciNoteToLocal(n: ApiSciNote): SciNote {
 
 interface SciNoteStoreContextValue {
   notes: SciNote[];
+  /** True while waiting for the initial GET /api/scinotes to complete. */
+  loading: boolean;
   /** True once the API responded successfully on mount. */
   apiReady: boolean;
   /** Create a new SciNote from wizard form data. Returns the server-assigned id. */
@@ -64,10 +68,12 @@ const SciNoteStoreContext = createContext<SciNoteStoreContextValue | null>(null)
 
 export function SciNoteStoreProvider({ children }: { children: React.ReactNode }) {
   const [notes, setNotes] = useState<SciNote[]>(loadSciNotes);
+  const [loading, setLoading] = useState(true);
   const [apiReady, setApiReady] = useState(false);
 
   // ---------------------------------------------------------------------------
-  // Bootstrap: try to load from API; stay with localStorage on failure.
+  // Bootstrap: load from API. Initial state is localStorage cache ([] for new
+  // users). The API response replaces it with authoritative data.
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
@@ -81,7 +87,11 @@ export function SciNoteStoreProvider({ children }: { children: React.ReactNode }
         setApiReady(true);
       })
       .catch(() => {
-        if (!cancelled) setApiReady(false);
+        // API unavailable — keep whatever was loaded from localStorage cache.
+        // Consumers should check apiReady === false to show an appropriate state.
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -190,7 +200,7 @@ export function SciNoteStoreProvider({ children }: { children: React.ReactNode }
 
   return (
     <SciNoteStoreContext.Provider
-      value={{ notes, apiReady, createSciNote, renameSciNote, reinitializeSciNote, deleteSciNote }}
+      value={{ notes, loading, apiReady, createSciNote, renameSciNote, reinitializeSciNote, deleteSciNote }}
     >
       {children}
     </SciNoteStoreContext.Provider>

@@ -1,5 +1,4 @@
 import type { SciNote } from "@/types/scinote";
-import { PLACEHOLDER_SCINOTES } from "@/data/scinotes";
 
 /**
  * Persistence layer for the SciNote list (personal module).
@@ -10,24 +9,29 @@ import { PLACEHOLDER_SCINOTES } from "@/data/scinotes";
  * This file is the single authoritative source for SciNote list I/O.
  * SciNoteStoreContext reads from and writes to these helpers.
  * WorkbenchContext must never import from this file (one-way dependency).
+ *
+ * NOTE: loadSciNotes returns [] when localStorage is empty or corrupt.
+ *       There is no placeholder/demo fallback — an empty result means the
+ *       user has no SciNotes yet. SciNoteStoreContext populates the list
+ *       from the API on mount.
  */
 
 const SCINOTE_KEY = "sciblock:scinotes";
 
 /**
  * Load the saved SciNote list from localStorage.
- * Falls back to PLACEHOLDER_SCINOTES if nothing is stored yet
- * (genuine first launch) or if the stored data is corrupt.
+ * Returns [] if nothing is stored yet or if the stored data is corrupt.
+ * Never returns placeholder or demo data.
  */
 export function loadSciNotes(): SciNote[] {
   try {
     const raw = localStorage.getItem(SCINOTE_KEY);
-    if (!raw) return PLACEHOLDER_SCINOTES;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return PLACEHOLDER_SCINOTES;
+    if (!Array.isArray(parsed)) return [];
     return parsed as SciNote[];
   } catch {
-    return PLACEHOLDER_SCINOTES;
+    return [];
   }
 }
 

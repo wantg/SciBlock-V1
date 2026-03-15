@@ -1,20 +1,25 @@
 /**
  * useCalendarPanel — business logic hook for the UtilityRail calendar panel.
  *
- * Layer: Business logic (no UI, no direct API calls from components).
+ * Layer: Business logic (no UI, no direct storage or API calls).
  *
  * Responsibilities:
- *   - Load and refresh the date→record index from calendarRecords API
+ *   - Derive the date→record index from ExperimentRecord[] provided by WorkbenchContext
  *   - Manage selected date + current month navigation state
  *   - Derive selectedRecords and recentDays for rendering
+ *
+ * Data source: records are passed in from WorkbenchContext (the authoritative
+ * in-memory state). The calendar reacts automatically when records change —
+ * no manual refresh against storage is needed.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
-  loadAllCalendarRecords,
+  buildCalendarRecordMap,
   getRecentDays,
 } from "@/api/calendarRecords";
 import type { CalendarRecord, DateRecordMap } from "@/types/calendarPanel";
+import type { ExperimentRecord } from "@/types/workbench";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,22 +60,31 @@ export interface CalendarPanelState {
 // ---------------------------------------------------------------------------
 
 /**
- * @param isOpen Whether the calendar panel is currently visible.
- *   Re-loads data every time the panel is opened to catch newly confirmed records.
+ * @param isOpen    Whether the calendar panel is currently visible.
+ * @param records   ExperimentRecord[] from WorkbenchContext. The dateMap
+ *                  updates automatically whenever this array changes.
+ * @param sciNoteId The SciNote that owns the records.
  */
-export function useCalendarPanel(isOpen: boolean): CalendarPanelState {
-  const [dateMap, setDateMap]       = useState<DateRecordMap>(new Map());
+export function useCalendarPanel(
+  isOpen: boolean,
+  records: ExperimentRecord[],
+  sciNoteId: string,
+): CalendarPanelState {
   const [selectedDate, setSelected] = useState<Date | null>(null);
   const [currentMonth, setMonth]    = useState<Date>(() => startOfMonth(new Date()));
 
-  const refresh = useCallback(() => {
-    setDateMap(loadAllCalendarRecords());
-  }, []);
+  // Derived from WorkbenchContext records — updates automatically on every
+  // records change. No storage read required.
+  const dateMap = useMemo(
+    () => buildCalendarRecordMap(records, sciNoteId),
+    [records, sciNoteId],
+  );
 
-  // Re-load every time the panel opens
-  useEffect(() => {
-    if (isOpen) refresh();
-  }, [isOpen, refresh]);
+  // Kept in the public interface for backwards compatibility and UI affordance.
+  // With reactive dateMap, no manual storage reload is needed.
+  const refresh = useCallback(() => {
+    // no-op: dateMap is derived from context state and updates automatically.
+  }, []);
 
   const selectedDateStr = selectedDate ? toDateStr(selectedDate) : null;
   const selectedRecords = selectedDateStr
@@ -82,7 +96,6 @@ export function useCalendarPanel(isOpen: boolean): CalendarPanelState {
 
   function selectDate(d: Date | null) {
     setSelected(d);
-    // Navigate month to the clicked date's month
     if (d) setMonth(startOfMonth(d));
   }
 
@@ -93,6 +106,10 @@ export function useCalendarPanel(isOpen: boolean): CalendarPanelState {
   function nextMonth() {
     setMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
   }
+
+  // Suppress unused-variable warning — isOpen is kept for symmetry with
+  // future use (e.g. reset selection on close).
+  void isOpen;
 
   return {
     dateMap,

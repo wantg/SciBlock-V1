@@ -60,10 +60,10 @@ interface Props {
 }
 
 export function CalendarPanel({ isOpen }: Props) {
-  const { currentRecord, switchRecord } = useWorkbench();
+  const { currentRecord, switchRecord, records } = useWorkbench();
   const [, navigate] = useLocation();
 
-  const state = useCalendarPanel(isOpen);
+  const state = useCalendarPanel(isOpen, records, currentRecord.sciNoteId);
 
   // ── Navigation handler ─────────────────────────────────────────────────
   function handleNavigate(sciNoteId: string, recordId: string) {

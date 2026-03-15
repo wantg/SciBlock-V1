@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ReportStatusTag } from "@/components/reports/ReportStatusTag";
 import { ReportContentView } from "@/components/reports/ReportContentView";
 import { CommentThread } from "@/components/reports/CommentThread";
+import { useCurrentUser } from "@/contexts/UserContext";
 import type { StudentWithReport } from "@/hooks/reports/useTeamReports";
 import type { WeeklyReportStatus, AddWeeklyReportCommentPayload } from "@/types/weeklyReport";
 import { parseReportContent, fmtWeekRange } from "@/types/weeklyReport";
@@ -27,14 +28,9 @@ export function TeamReportDetailPanel({ selected, weekStart, weekEnd, onChangeSt
   const [feedbackText, setFeedbackText] = useState("");
   const [changing, setChanging] = useState(false);
 
-  const currentUserId = (() => {
-    try { return JSON.parse(localStorage.getItem("sciblock:currentUser") ?? "{}").id ?? "instructor-1"; }
-    catch { return "instructor-1"; }
-  })();
-  const currentUserName = (() => {
-    try { return JSON.parse(localStorage.getItem("sciblock:currentUser") ?? "{}").name ?? "导师"; }
-    catch { return "导师"; }
-  })();
+  const { currentUser } = useCurrentUser();
+  const currentUserId = currentUser?.id ?? "";
+  const currentUserName = currentUser?.name ?? "";
 
   if (!selected) {
     return (
