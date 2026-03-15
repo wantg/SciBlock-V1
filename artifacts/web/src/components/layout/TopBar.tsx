@@ -1,6 +1,7 @@
 import React from "react";
 import { Bell } from "lucide-react";
 import { TimeDisplay } from "../ui/TimeDisplay";
+import { IdentityBadge } from "./IdentityBadge";
 
 interface Props {
   title: string;
@@ -16,18 +17,16 @@ export function TopBar({ title }: Props) {
 
         <div className="w-px h-4 bg-gray-200 flex-shrink-0" />
 
+        <IdentityBadge />
+
+        <div className="w-px h-4 bg-gray-200 flex-shrink-0" />
+
         <button
           aria-label="Notifications"
           className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
         >
           <Bell size={16} />
         </button>
-        <div
-          aria-label="User avatar"
-          className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 select-none"
-        >
-          U
-        </div>
       </div>
     </header>
   );
