@@ -1,9 +1,3 @@
-// Package handler contains HTTP handlers.
-//
-// Rules:
-//   - Handlers must only call service methods — never repository or db directly.
-//   - Handlers decode request bodies, call service, encode responses.
-//   - All error mapping (service error → HTTP status) lives here.
 package handler
 
 import (
@@ -11,13 +5,13 @@ import (
 	"errors"
 	"net/http"
 
-	"sciblock/go-api/internal/domain"
 	"sciblock/go-api/internal/dto"
 	"sciblock/go-api/internal/middleware"
 	"sciblock/go-api/internal/service"
 )
 
 // AuthHandler handles auth-related HTTP endpoints.
+// It may only call service methods and write HTTP responses — no business logic here.
 type AuthHandler struct {
 	auth *service.AuthService
 }
@@ -49,7 +43,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, dto.LoginResponse{
 		Token: result.Token,
-		User:  domainUserToDTO(result.User),
+		User:  dto.UserDTOFromDomain(result.User),
 	})
 }
 
@@ -68,40 +62,16 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, domainUserToDTO(user))
+	writeJSON(w, http.StatusOK, dto.UserDTOFromDomain(user))
 }
 
 // Logout handles POST /api/auth/logout.
-// JWTs are stateless — logout is handled client-side by deleting the token.
-// This endpoint exists so the frontend has a clean call to make on logout,
-// and so server-side session invalidation can be added here later (e.g.
-// a token denylist in Redis) without frontend changes.
-func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+//
+// JWTs are stateless — client-side token deletion is sufficient.
+// This endpoint exists as a clean no-op hook so that:
+//  1. The frontend has a symmetric logout API call to make.
+//  2. Server-side invalidation (e.g. Redis denylist) can be added here
+//     in a future iteration without any frontend changes.
+func (h *AuthHandler) Logout(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Logged out"})
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-func domainUserToDTO(u *domain.User) dto.UserDTO {
-	return dto.UserDTO{
-		ID:    u.ID,
-		Email: u.Email,
-		Name:  u.Name,
-		Role:  string(u.Role),
-	}
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
-}
-
-func writeError(w http.ResponseWriter, status int, code, message string) {
-	writeJSON(w, status, map[string]string{
-		"error":   code,
-		"message": message,
-	})
 }

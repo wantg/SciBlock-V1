@@ -1,7 +1,3 @@
-// Package repository defines data-access interfaces and their pgx implementations.
-//
-// Rule: repository functions must return domain types, never raw database rows.
-// Rule: repositories must NOT contain business logic — that belongs in service.
 package repository
 
 import (
@@ -11,8 +7,8 @@ import (
 )
 
 // UserRepository defines all database operations for the users table.
-// The interface is defined here so that service code depends on the abstraction,
-// not the concrete pgx implementation — enabling easy test doubles.
+// The interface is the dependency boundary: services depend on this abstraction,
+// not on the concrete pgx implementation.
 type UserRepository interface {
 	// GetByEmail retrieves a user by email address (case-insensitive).
 	// Returns nil, nil when not found.
@@ -22,11 +18,3 @@ type UserRepository interface {
 	// Returns nil, nil when not found.
 	GetByID(ctx context.Context, id string) (*domain.User, error)
 }
-
-// TODO: implement pgxUserRepository once DB pool is injected into the handler chain.
-// Skeleton:
-//
-//	type pgxUserRepository struct { pool *pgxpool.Pool }
-//	func NewUserRepository(pool *pgxpool.Pool) UserRepository { ... }
-//	func (r *pgxUserRepository) GetByEmail(...) (*domain.User, error) { ... }
-//	func (r *pgxUserRepository) GetByID(...) (*domain.User, error) { ... }

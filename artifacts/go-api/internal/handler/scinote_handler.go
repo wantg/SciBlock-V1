@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -12,7 +11,8 @@ import (
 	"sciblock/go-api/internal/service"
 )
 
-// SciNoteHandler handles /api/scinotes endpoints.
+// SciNoteHandler handles /api/scinotes HTTP endpoints.
+// All business logic and ownership validation live in SciNoteService.
 type SciNoteHandler struct {
 	svc *service.SciNoteService
 }
@@ -23,8 +23,10 @@ func NewSciNoteHandler(svc *service.SciNoteService) *SciNoteHandler {
 }
 
 // List handles GET /api/scinotes.
+// Returns all non-deleted SciNotes owned by the authenticated user.
 func (h *SciNoteHandler) List(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ClaimsFromContext(r.Context())
+
 	notes, err := h.svc.List(r.Context(), claims.UserID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "Failed to list SciNotes")
@@ -32,8 +34,8 @@ func (h *SciNoteHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	items := make([]dto.SciNoteResponse, len(notes))
-	for i, n := range notes {
-		items[i] = domainSciNoteToDTO(&n)
+	for i := range notes {
+		items[i] = dto.SciNoteResponseFromDomain(&notes[i])
 	}
 	writeJSON(w, http.StatusOK, dto.ListSciNotesResponse{Items: items, Total: len(items)})
 }
@@ -48,27 +50,27 @@ func (h *SciNoteHandler) Get(w http.ResponseWriter, r *http.Request) {
 		mapServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, domainSciNoteToDTO(note))
+	writeJSON(w, http.StatusOK, dto.SciNoteResponseFromDomain(note))
 }
 
 // Create handles POST /api/scinotes.
+// Default field values (e.g. kind) are applied in SciNoteService.Create.
 func (h *SciNoteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreateSciNoteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "Request body must be valid JSON")
 		return
 	}
-
 	if req.Title == "" {
 		writeError(w, http.StatusBadRequest, "validation_error", "title is required")
 		return
 	}
-	if req.Kind == "" {
-		req.Kind = "wizard"
-	}
 
 	claims := middleware.ClaimsFromContext(r.Context())
-	note := domain.SciNote{
+
+	// Pure data translation from request DTO to domain input type.
+	// Business defaults (e.g. default kind) are applied in SciNoteService.Create.
+	input := domain.SciNote{
 		Title:          req.Title,
 		Kind:           req.Kind,
 		ExperimentType: req.ExperimentType,
@@ -76,15 +78,16 @@ func (h *SciNoteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		FormData:       req.FormData,
 	}
 
-	created, err := h.svc.Create(r.Context(), note, claims.UserID)
+	created, err := h.svc.Create(r.Context(), input, claims.UserID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "Failed to create SciNote")
 		return
 	}
-	writeJSON(w, http.StatusCreated, domainSciNoteToDTO(created))
+	writeJSON(w, http.StatusCreated, dto.SciNoteResponseFromDomain(created))
 }
 
 // Update handles PATCH /api/scinotes/:id.
+// All patch fields are optional; only non-nil fields are written to the database.
 func (h *SciNoteHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	claims := middleware.ClaimsFromContext(r.Context())
@@ -107,7 +110,7 @@ func (h *SciNoteHandler) Update(w http.ResponseWriter, r *http.Request) {
 		mapServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, domainSciNoteToDTO(updated))
+	writeJSON(w, http.StatusOK, dto.SciNoteResponseFromDomain(updated))
 }
 
 // Delete handles DELETE /api/scinotes/:id (soft delete).
@@ -120,33 +123,4 @@ func (h *SciNoteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-func domainSciNoteToDTO(n *domain.SciNote) dto.SciNoteResponse {
-	return dto.SciNoteResponse{
-		ID:             n.ID,
-		UserID:         n.UserID,
-		Title:          n.Title,
-		Kind:           n.Kind,
-		ExperimentType: n.ExperimentType,
-		Objective:      n.Objective,
-		FormData:       n.FormData,
-		CreatedAt:      n.CreatedAt,
-		UpdatedAt:      n.UpdatedAt,
-	}
-}
-
-func mapServiceError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, service.ErrNotFound):
-		writeError(w, http.StatusNotFound, "not_found", "Resource not found")
-	case errors.Is(err, service.ErrForbidden):
-		writeError(w, http.StatusForbidden, "forbidden", "Access denied")
-	default:
-		writeError(w, http.StatusInternalServerError, "server_error", "An unexpected error occurred")
-	}
 }

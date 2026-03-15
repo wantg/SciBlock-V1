@@ -11,7 +11,8 @@ import (
 	"sciblock/go-api/internal/service"
 )
 
-// ExperimentHandler handles ExperimentRecord endpoints.
+// ExperimentHandler handles ExperimentRecord HTTP endpoints.
+// All business logic and validation rules live in ExperimentService.
 type ExperimentHandler struct {
 	svc *service.ExperimentService
 }
@@ -22,7 +23,7 @@ func NewExperimentHandler(svc *service.ExperimentService) *ExperimentHandler {
 }
 
 // ListBySciNote handles GET /api/scinotes/:id/experiments
-// Query param: ?deleted=true → return trash (soft-deleted) records.
+// Query param: ?deleted=true → return soft-deleted records (trash view).
 func (h *ExperimentHandler) ListBySciNote(w http.ResponseWriter, r *http.Request) {
 	sciNoteID := chi.URLParam(r, "id")
 	claims := middleware.ClaimsFromContext(r.Context())
@@ -35,13 +36,14 @@ func (h *ExperimentHandler) ListBySciNote(w http.ResponseWriter, r *http.Request
 	}
 
 	items := make([]dto.ExperimentResponse, len(records))
-	for i, rec := range records {
-		items[i] = domainExpToDTO(&rec)
+	for i := range records {
+		items[i] = dto.ExperimentResponseFromDomain(&records[i])
 	}
 	writeJSON(w, http.StatusOK, dto.ListExperimentsResponse{Items: items, Total: len(items)})
 }
 
 // Create handles POST /api/scinotes/:id/experiments
+// Validation and default field values are applied in the service layer.
 func (h *ExperimentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	sciNoteID := chi.URLParam(r, "id")
 	claims := middleware.ClaimsFromContext(r.Context())
@@ -55,11 +57,10 @@ func (h *ExperimentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "validation_error", "title is required")
 		return
 	}
-	if req.ExperimentStatus == "" {
-		req.ExperimentStatus = domain.StatusExploring
-	}
 
-	rec := domain.ExperimentRecord{
+	// Pure data translation from request DTO to domain input type.
+	// Business defaults (e.g. default status) are applied in ExperimentService.Create.
+	input := domain.ExperimentRecord{
 		Title:              req.Title,
 		PurposeInput:       req.PurposeInput,
 		ExperimentStatus:   req.ExperimentStatus,
@@ -68,16 +69,13 @@ func (h *ExperimentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		CurrentModules:     req.CurrentModules,
 		InheritedVersionID: req.InheritedVersionID,
 	}
-	if rec.Tags == nil {
-		rec.Tags = []string{}
-	}
 
-	created, err := h.svc.Create(r.Context(), sciNoteID, rec, claims.UserID)
+	created, err := h.svc.Create(r.Context(), sciNoteID, input, claims.UserID)
 	if err != nil {
 		mapServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, domainExpToDTO(created))
+	writeJSON(w, http.StatusCreated, dto.ExperimentResponseFromDomain(created))
 }
 
 // Get handles GET /api/experiments/:id
@@ -90,11 +88,11 @@ func (h *ExperimentHandler) Get(w http.ResponseWriter, r *http.Request) {
 		mapServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, domainExpToDTO(rec))
+	writeJSON(w, http.StatusOK, dto.ExperimentResponseFromDomain(rec))
 }
 
 // Update handles PATCH /api/experiments/:id
-// Supports all scalar fields plus currentModules (whole-column replacement).
+// All patch fields are optional; only non-nil fields are written to the database.
 func (h *ExperimentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	claims := middleware.ClaimsFromContext(r.Context())
@@ -120,10 +118,11 @@ func (h *ExperimentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		mapServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, domainExpToDTO(updated))
+	writeJSON(w, http.StatusOK, dto.ExperimentResponseFromDomain(updated))
 }
 
 // SoftDelete handles DELETE /api/experiments/:id
+// Sets is_deleted=true; the record can be restored via the Restore endpoint.
 func (h *ExperimentHandler) SoftDelete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	claims := middleware.ClaimsFromContext(r.Context())
@@ -136,6 +135,7 @@ func (h *ExperimentHandler) SoftDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 // Restore handles PATCH /api/experiments/:id/restore
+// Sets is_deleted=false, making the record active again.
 func (h *ExperimentHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	claims := middleware.ClaimsFromContext(r.Context())
@@ -145,32 +145,5 @@ func (h *ExperimentHandler) Restore(w http.ResponseWriter, r *http.Request) {
 		mapServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, domainExpToDTO(restored))
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-func domainExpToDTO(rec *domain.ExperimentRecord) dto.ExperimentResponse {
-	tags := rec.Tags
-	if tags == nil {
-		tags = []string{}
-	}
-	return dto.ExperimentResponse{
-		ID:                 rec.ID,
-		SciNoteID:          rec.SciNoteID,
-		Title:              rec.Title,
-		PurposeInput:       rec.PurposeInput,
-		ExperimentStatus:   rec.ExperimentStatus,
-		ExperimentCode:     rec.ExperimentCode,
-		Tags:               tags,
-		EditorContent:      rec.EditorContent,
-		ReportHtml:         rec.ReportHtml,
-		CurrentModules:     rec.CurrentModules,
-		InheritedVersionID: rec.InheritedVersionID,
-		IsDeleted:          rec.IsDeleted,
-		CreatedAt:          rec.CreatedAt,
-		UpdatedAt:          rec.UpdatedAt,
-	}
+	writeJSON(w, http.StatusOK, dto.ExperimentResponseFromDomain(restored))
 }

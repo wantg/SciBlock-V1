@@ -7,12 +7,14 @@ import (
 )
 
 // SciNoteRepository defines all database operations for the scinotes table.
+// The interface is the dependency boundary: services depend on this abstraction,
+// not on the concrete pgx implementation.
 type SciNoteRepository interface {
 	// ListByUser returns all non-deleted SciNotes owned by the given user,
 	// ordered by updated_at DESC.
 	ListByUser(ctx context.Context, userID string) ([]domain.SciNote, error)
 
-	// GetByID retrieves a single SciNote by primary key.
+	// GetByID retrieves a single SciNote by primary key (regardless of is_deleted status).
 	// Returns nil, nil when not found.
 	GetByID(ctx context.Context, id string) (*domain.SciNote, error)
 
@@ -28,5 +30,3 @@ type SciNoteRepository interface {
 	// SoftDelete sets is_deleted=true on the given SciNote.
 	SoftDelete(ctx context.Context, id string) error
 }
-
-// TODO: implement pgxSciNoteRepository
