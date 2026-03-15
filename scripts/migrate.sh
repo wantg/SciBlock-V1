@@ -3,20 +3,33 @@
 # scripts/migrate.sh — Run all database migrations for SciBlock
 # =============================================================================
 # Usage:
-#   sh scripts/migrate.sh              # run all pending migrations
-#   sh scripts/migrate.sh drizzle      # Drizzle only (Express tables)
-#   sh scripts/migrate.sh goose        # goose only (Go backend tables)
-#   sh scripts/migrate.sh goose down   # roll back the last goose migration
-#   sh scripts/migrate.sh goose status # show goose migration status
+#   pnpm migrate                        # run all pending migrations (preferred)
+#   bash scripts/migrate.sh             # run all pending migrations
+#   bash scripts/migrate.sh drizzle     # Drizzle only (Express tables)
+#   bash scripts/migrate.sh goose       # goose only (Go backend tables)
+#   bash scripts/migrate.sh goose down  # roll back the last goose migration
+#   bash scripts/migrate.sh goose status # show goose migration status
 #
 # Prerequisites:
 #   DATABASE_URL must be set in the environment.
 #
+# New environment setup:
+#   1. pnpm migrate          — applies all migrations from scratch
+#   2. bash scripts/seed-dev-user.sh — creates the dev/test instructor account
+#
+# Existing environment (first switch from push to migrate mode):
+#   1. bash scripts/db-baseline.sh  — marks initial migration as applied (TRANSITION, once only)
+#   2. pnpm migrate                 — picks up any new migrations going forward
+#
 # Migration ownership:
-#   Drizzle → lib/db/migrations/        (users, students, papers, weekly_reports,
-#                                         report_comments, messages)
+#   Drizzle → lib/db/migrations/        (users [incl. role], students, papers,
+#                                         weekly_reports, report_comments, messages)
 #   goose   → artifacts/go-api/internal/db/migrations/
-#                                        (users.role, scinotes, experiment_records)
+#                                        (scinotes, experiment_records,
+#                                         and 20260315001 which is a frozen
+#                                         compatibility artifact for users.role —
+#                                         Drizzle schema is now authoritative for
+#                                         that column; goose migration is idempotent)
 # =============================================================================
 
 set -euo pipefail
@@ -52,14 +65,14 @@ log "DATABASE_URL is set."
 run_drizzle() {
   log "Running Drizzle migrations (Express tables)..."
 
-  # Try migration mode first; fall back to push if no migration files exist yet.
-  if [ -d "${ROOT_DIR}/lib/db/migrations" ] && [ "$(ls -A "${ROOT_DIR}/lib/db/migrations" 2>/dev/null)" ]; then
-    pnpm --filter @workspace/db run migrate 2>/dev/null \
-      || pnpm db:push
-  else
-    log "No Drizzle migration files found — using db:push (schema sync)."
-    pnpm db:push
-  fi
+  # drizzle-kit migrate is non-interactive and idempotent.
+  # It reads lib/db/migrations/, checks drizzle.__drizzle_migrations,
+  # and applies only pending migrations.
+  #
+  # For existing environments that predate this migrate workflow, run
+  # scripts/db-baseline.sh once before running migrate for the first time.
+  # New (empty) environments: run this directly — no baseline step needed.
+  pnpm --filter @workspace/db run migrate
 
   log_ok "Drizzle migration complete."
 }
@@ -70,21 +83,25 @@ run_drizzle() {
 run_goose() {
   local subcommand="${1:-up}"
   local migrations_dir="${ROOT_DIR}/artifacts/go-api/internal/db/migrations"
+  local goose_cmd
 
-  if ! command -v goose &>/dev/null; then
-    # Try to find goose in the Go path
+  if command -v goose &>/dev/null; then
+    goose_cmd="goose"
+  else
+    # goose not on PATH — check the Go bin directory.
     local goose_bin
     goose_bin="$(go env GOPATH)/bin/goose"
     if [ -f "$goose_bin" ]; then
-      alias goose="$goose_bin"
+      goose_cmd="$goose_bin"
     else
       log "goose not found — installing..."
       go install github.com/pressly/goose/v3/cmd/goose@latest
+      goose_cmd="$goose_bin"
     fi
   fi
 
   log "Running goose ${subcommand} (Go backend tables)..."
-  goose -dir "${migrations_dir}" postgres "${DATABASE_URL}" "${subcommand}"
+  "$goose_cmd" -dir "${migrations_dir}" postgres "${DATABASE_URL}" "${subcommand}"
   log_ok "goose ${subcommand} complete."
 }
 
