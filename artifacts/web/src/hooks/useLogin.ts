@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { login } from "@/api/auth";
 import { ApiError, setStoredToken } from "@/api/client";
-
-const USER_STORAGE_KEY = "sciblock:currentUser";
+import { useCurrentUser } from "@/contexts/UserContext";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -26,6 +25,7 @@ export interface LoginFormState {
 
 export function useLogin(): LoginFormState {
   const [, navigate] = useLocation();
+  const { setCurrentUser } = useCurrentUser();
 
   const [email, setEmailRaw] = useState("");
   const [password, setPasswordRaw] = useState("");
@@ -81,12 +81,8 @@ export function useLogin(): LoginFormState {
       const result = await login({ email: email.trim(), password });
       // Persist JWT token for all subsequent API calls (Go API).
       setStoredToken(result.token);
-      // Persist user info for MessagesContext and other authenticated features.
-      try {
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(result.user));
-      } catch {
-        // ignore storage errors
-      }
+      // Update UserContext state (also persists to localStorage via writeStoredUser).
+      setCurrentUser(result.user);
       navigate("/home");
     } catch (err) {
       if (err instanceof ApiError) {
