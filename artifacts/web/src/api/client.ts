@@ -5,7 +5,6 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 // ---------------------------------------------------------------------------
 
 const TOKEN_KEY = "sciblock:token";
-const USER_KEY = "sciblock:currentUser";
 
 export function getStoredToken(): string | null {
   try {
@@ -50,28 +49,29 @@ export class ApiError extends Error {
 // Core fetch helper
 // ---------------------------------------------------------------------------
 
+/**
+ * Central HTTP client for all API calls.
+ *
+ * Identity is conveyed via `Authorization: Bearer <token>` only.
+ * The backend (Go for scinotes/experiments, Express for messages/reports/team)
+ * extracts the user ID from the JWT claims server-side.
+ *
+ * X-User-Id is no longer sent — it was a forgeable stopgap. If you see a
+ * caller adding X-User-Id manually, that is a bug and should be removed.
+ */
 export async function apiFetch<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
   const token = getStoredToken();
-  const userId = (() => {
-    try {
-      const raw = localStorage.getItem(USER_KEY);
-      return raw ? (JSON.parse(raw) as { id?: string }).id ?? "" : "";
-    } catch {
-      return "";
-    }
-  })();
 
-  const extraHeaders: Record<string, string> = {};
-  if (token) extraHeaders["Authorization"] = `Bearer ${token}`;
-  if (userId) extraHeaders["X-User-Id"] = userId;
+  const authHeaders: Record<string, string> = {};
+  if (token) authHeaders["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(`${BASE}/api${path}`, {
     headers: {
       "Content-Type": "application/json",
-      ...extraHeaders,
+      ...authHeaders,
     },
     ...options,
   });

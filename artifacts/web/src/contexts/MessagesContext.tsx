@@ -24,8 +24,8 @@ import {
   markMessageRead,
   performMessageAction,
   deleteMessage,
-  getCurrentUserId,
 } from "../api/messages";
+import { getStoredToken } from "../api/client";
 
 // ---------------------------------------------------------------------------
 // Context value type
@@ -62,7 +62,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!getCurrentUserId()) return;
+    if (!getStoredToken()) return;
     setLoading(true);
     setError(null);
     try {

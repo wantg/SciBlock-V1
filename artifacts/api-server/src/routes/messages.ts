@@ -6,10 +6,11 @@
  * PATCH  /api/messages/:id/action— 接受或拒绝（邀请/分享请求）
  * DELETE /api/messages/:id       — 软删除
  *
- * 用户标识: 从请求头 X-User-Id 读取（前端登录后从 localStorage 获取）
+ * 所有路由均受 requireAuth 中间件保护（在 routes/index.ts 中统一注册）。
+ * 用户身份从 res.locals.userId 读取，不再依赖 X-User-Id header。
  */
 
-import { Router, type IRouter, type Request } from "express";
+import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { messagesTable } from "@workspace/db/schema";
 import { eq, and, ne } from "drizzle-orm";
@@ -17,14 +18,8 @@ import { eq, and, ne } from "drizzle-orm";
 const router: IRouter = Router();
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Seed data helper
 // ---------------------------------------------------------------------------
-
-function getUserId(req: Request): string | null {
-  return (req.headers["x-user-id"] as string | undefined) ?? null;
-}
-
-type MessageRow = typeof messagesTable.$inferSelect;
 
 function buildSeedMessages(recipientId: string): typeof messagesTable.$inferInsert[] {
   return [
@@ -35,10 +30,7 @@ function buildSeedMessages(recipientId: string): typeof messagesTable.$inferInse
       status: "unread",
       title: "邀请你加入「纳米材料合成」研究团队",
       body: "导师 Prof. Chen Wei 邀请你加入实验团队「纳米材料合成」。加入后你将可以访问团队共享的实验记录与数据资源。",
-      metadata: {
-        teamName: "纳米材料合成",
-        teamId: "team-nano-001",
-      },
+      metadata: { teamName: "纳米材料合成", teamId: "team-nano-001" },
     },
     {
       recipientId,
@@ -60,10 +52,7 @@ function buildSeedMessages(recipientId: string): typeof messagesTable.$inferInse
       status: "unread",
       title: "Li Wei 请求你分享实验记录",
       body: "用户 Li Wei 请求你分享实验记录「Synthesis protocol v2」。接受后，对方将获得该记录的只读访问权限。",
-      metadata: {
-        experimentTitle: "Synthesis protocol v2",
-        experimentId: "exp-002",
-      },
+      metadata: { experimentTitle: "Synthesis protocol v2", experimentId: "exp-002" },
     },
     {
       recipientId,
@@ -72,10 +61,7 @@ function buildSeedMessages(recipientId: string): typeof messagesTable.$inferInse
       status: "read",
       title: "邀请你加入「电化学储能」研究团队",
       body: "导师 Prof. Chen Wei 邀请你加入实验团队「电化学储能」，与团队共同推进新型电极材料的研发工作。",
-      metadata: {
-        teamName: "电化学储能",
-        teamId: "team-echem-002",
-      },
+      metadata: { teamName: "电化学储能", teamId: "team-echem-002" },
     },
     {
       recipientId,
@@ -99,11 +85,7 @@ function buildSeedMessages(recipientId: string): typeof messagesTable.$inferInse
 
 /** GET /api/messages — list non-deleted messages; auto-seed on first visit */
 router.get("/", async (req, res) => {
-  const userId = getUserId(req);
-  if (!userId) {
-    res.status(401).json({ error: "unauthorized", message: "X-User-Id header is required" });
-    return;
-  }
+  const userId = res.locals.userId;
 
   try {
     const existing = await db
@@ -117,7 +99,9 @@ router.get("/", async (req, res) => {
       )
       .orderBy(messagesTable.createdAt);
 
-    // Auto-seed demo messages on first visit
+    // Auto-seed demo messages on first visit.
+    // TRANSITION: seed logic should be replaced by a dedicated admin seeding
+    // mechanism or removed once real message sending is implemented.
     if (existing.length === 0) {
       const seeds = buildSeedMessages(userId);
       await db.insert(messagesTable).values(seeds);
@@ -135,7 +119,6 @@ router.get("/", async (req, res) => {
       return;
     }
 
-    // Return newest first
     res.json({ messages: existing.slice().reverse() });
   } catch (err) {
     console.error("[messages] GET error:", err);
@@ -145,10 +128,9 @@ router.get("/", async (req, res) => {
 
 /** PATCH /api/messages/:id/read */
 router.patch("/:id/read", async (req, res) => {
-  const userId = getUserId(req);
-  if (!userId) { res.status(401).json({ error: "unauthorized" }); return; }
-
+  const userId = res.locals.userId;
   const { id } = req.params;
+
   try {
     await db
       .update(messagesTable)
@@ -169,9 +151,7 @@ router.patch("/:id/read", async (req, res) => {
 
 /** PATCH /api/messages/:id/action — accept or reject */
 router.patch("/:id/action", async (req, res) => {
-  const userId = getUserId(req);
-  if (!userId) { res.status(401).json({ error: "unauthorized" }); return; }
-
+  const userId = res.locals.userId;
   const { id } = req.params;
   const { action } = req.body as { action?: string };
 
@@ -199,10 +179,9 @@ router.patch("/:id/action", async (req, res) => {
 
 /** DELETE /api/messages/:id — soft delete */
 router.delete("/:id", async (req, res) => {
-  const userId = getUserId(req);
-  if (!userId) { res.status(401).json({ error: "unauthorized" }); return; }
-
+  const userId = res.locals.userId;
   const { id } = req.params;
+
   try {
     await db
       .update(messagesTable)
