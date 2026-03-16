@@ -32,18 +32,34 @@ cp .env.docker.example .env.docker
 
 根据需要编辑 `.env.docker`（至少设置 `JWT_SECRET` 和 `ADMIN_SECRET`）。
 
-### 2. 构建并启动所有服务
+### 2. 构建并启动所有服务（含数据初始化）
+
+**首次启动**或**数据库为空**时，需要先运行迁移和种子数据：
 
 ```bash
-docker-compose --env-file .env.docker up --build -d
+# 第 1 步：启动数据库
+docker-compose --env-file .env.docker up -d postgres redis
+
+# 第 2 步：运行迁移和种子数据（创建表结构 + 初始化测试账户）
+docker-compose --env-file .env.docker run --rm migration
+
+# 第 3 步：启动其他服务
+docker-compose --env-file .env.docker up -d go-api api-server web nginx
+```
+
+**非首次启动**（数据库已有数据）：
+
+```bash
+docker-compose --env-file .env.docker up -d
 ```
 
 该命令将：
 
 - 构建 Go API、Express API、前端和迁移服务的 Docker 镜像
 - 启动 PostgreSQL、Redis 数据库
-- 运行数据库迁移（通过 migration 服务）
 - 启动 Go API、Express API、前端和 Nginx 反向代理
+
+> **注意**：`migration` 服务使用 Docker profile，不会自动启动。首次启动时必须手动运行以初始化数据库表结构和测试账户。
 
 ### 3. 查看服务状态
 
@@ -230,7 +246,18 @@ docker-compose run --rm migration pnpm migrate drizzle
 docker-compose logs postgres
 ```
 
-### 3. 迁移失败
+### 3. 迁移失败 / 登录失败
+
+**症状**：无法登录，提示账户不存在或密码错误。
+
+**原因**：首次启动时未运行 `migration` 服务，数据库没有表结构和测试账户。
+
+**解决**：
+
+```bash
+# 运行迁移和种子数据
+docker-compose --env-file .env.docker run --rm migration
+```
 
 检查 `migration` 服务日志：
 
@@ -242,8 +269,9 @@ docker-compose logs migration
 
 ```bash
 docker-compose down -v
-docker-compose up -d postgres
-docker-compose run --rm migration
+docker-compose up -d postgres redis
+docker-compose --env-file .env.docker run --rm migration
+docker-compose --env-file .env.docker up -d go-api api-server web nginx
 ```
 
 ### 4. 前端无法加载

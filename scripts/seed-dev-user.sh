@@ -30,14 +30,35 @@ ROLE="instructor"
 
 echo "[seed] Hashing password with bcrypt (cost=12)..."
 
-# Use node + bcryptjs to hash the password (already installed in api-server).
+# Find bcryptjs module in various possible locations
+BCRYPTJS_PATH=""
+for path in \
+  "$(pwd)/node_modules/bcryptjs" \
+  "$(pwd)/scripts/node_modules/bcryptjs" \
+  "$(pwd)/artifacts/api-server/node_modules/bcryptjs" \
+  "$(dirname "$0")/../node_modules/bcryptjs" \
+  "$(dirname "$0")/node_modules/bcryptjs"
+do
+  if [ -d "$path" ]; then
+    BCRYPTJS_PATH="$path"
+    break
+  fi
+done
+
+if [ -z "$BCRYPTJS_PATH" ]; then
+  echo "[seed] ERROR: bcryptjs module not found. Checked: node_modules, scripts/node_modules, api-server/node_modules" >&2
+  exit 1
+fi
+
+echo "[seed] Using bcryptjs from: $BCRYPTJS_PATH"
+
 HASH=$(node -e "
-const bcrypt = require('$(pwd)/artifacts/api-server/node_modules/bcryptjs');
+const bcrypt = require('$BCRYPTJS_PATH');
 bcrypt.hash(process.argv[1], 12).then(h => process.stdout.write(h));
 " "$PASSWORD" 2>/dev/null)
 
 if [ -z "$HASH" ]; then
-  echo "[seed] ERROR: bcrypt hashing failed. Make sure bcryptjs is installed in artifacts/api-server." >&2
+  echo "[seed] ERROR: bcrypt hashing failed." >&2
   exit 1
 fi
 
