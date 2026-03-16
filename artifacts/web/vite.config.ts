@@ -20,7 +20,27 @@ if (Number.isNaN(port) || port <= 0) {
 
 // BASE_PATH defaults to "/" so the server can start outside Replit without
 // needing a platform-injected environment variable.
-const basePath = process.env.BASE_PATH ?? "/";
+function normalizeBasePath(raw: string | undefined): string {
+  if (!raw) return "/";
+
+  const trimmed = raw.trim();
+  if (!trimmed) return "/";
+
+  // Guard against accidental filesystem paths from host env vars on Windows.
+  // Vite base must be a URL pathname (e.g. "/" or "/app/").
+  if (/^[A-Za-z]:[\\/]/.test(trimmed) || /^https?:\/\//i.test(trimmed)) {
+    return "/";
+  }
+
+  let normalized = trimmed.replace(/\\/g, "/");
+  if (!normalized.startsWith("/")) normalized = `/${normalized}`;
+  normalized = normalized.replace(/\/+/g, "/");
+  if (!normalized.endsWith("/")) normalized += "/";
+
+  return normalized;
+}
+
+const basePath = normalizeBasePath(process.env.BASE_PATH);
 
 export default defineConfig({
   base: basePath,
@@ -29,17 +49,17 @@ export default defineConfig({
     tailwindcss(),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
+      process.env.REPL_ID !== undefined
       ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer({
-              root: path.resolve(import.meta.dirname, ".."),
-            }),
-          ),
-          await import("@replit/vite-plugin-dev-banner").then((m) =>
-            m.devBanner(),
-          ),
-        ]
+        await import("@replit/vite-plugin-cartographer").then((m) =>
+          m.cartographer({
+            root: path.resolve(import.meta.dirname, ".."),
+          }),
+        ),
+        await import("@replit/vite-plugin-dev-banner").then((m) =>
+          m.devBanner(),
+        ),
+      ]
       : []),
   ],
   resolve: {

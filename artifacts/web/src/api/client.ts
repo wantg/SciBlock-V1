@@ -1,14 +1,18 @@
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() ?? "";
+const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, "");
+const API_ORIGIN = API_BASE_URL || (import.meta.env.DEV ? "http://localhost:8080" : "");
+const API_ROOT = API_ORIGIN ? `${API_ORIGIN}/api` : `${BASE}/api`;
 
 // ---------------------------------------------------------------------------
 // Storage keys
 // ---------------------------------------------------------------------------
 
-const TOKEN_KEY      = "sciblock:token";
-const USER_KEY       = "sciblock:currentUser";
+const TOKEN_KEY = "sciblock:token";
+const USER_KEY = "sciblock:currentUser";
 // TRANSITION: removed once all student accounts have a confirmed user_id binding.
 const STUDENT_ID_KEY = "sciblock:myStudentId";
-const LOGIN_PATH     = `${BASE}/login`;
+const LOGIN_PATH = `${BASE}/login`;
 
 // ---------------------------------------------------------------------------
 // Token storage helpers
@@ -98,7 +102,7 @@ export async function apiFetch<T>(
   const authHeaders: Record<string, string> = {};
   if (token) authHeaders["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}/api${path}`, {
+  const res = await fetch(`${API_ROOT}${path}`, {
     headers: {
       "Content-Type": "application/json",
       ...authHeaders,

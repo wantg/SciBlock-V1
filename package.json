@@ -8,6 +8,8 @@
     "dev:web": "sh scripts/dev.sh web",
     "dev:api": "sh scripts/dev.sh api",
     "dev:go": "sh scripts/dev.sh go",
+    "dev:go:win": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/dev-go.ps1",
+    "dev:go:win:migrate": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/dev-go.ps1 -AutoMigrate",
     "build": "sh scripts/build.sh",
     "build:web": "sh scripts/build.sh web",
     "build:api": "sh scripts/build.sh api",
