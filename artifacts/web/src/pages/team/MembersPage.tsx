@@ -6,6 +6,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { useCurrentUser } from "@/contexts/UserContext";
 import type { Student, StudentStatus } from "../../types/team";
 import { STATUS_LABELS } from "../../types/team";
 import { fetchMembers } from "../../api/team";
@@ -21,11 +23,15 @@ const STATUS_FILTERS: { value: StudentStatus | "all"; label: string }[] = [
 
 export default function MembersPage() {
   const [, navigate]    = useLocation();
+  const { currentUser } = useCurrentUser();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [filter, setFilter] = useState<StudentStatus | "all">("all");
+
+  // 只有导师可以看到邀请按钮
+  const canInvite = currentUser?.role === "instructor";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,9 +68,9 @@ export default function MembersPage() {
   }, {});
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <AppLayout title="团队成员">
       {/* Header */}
-      <div className="px-8 pt-8 pb-6 border-b border-gray-100">
+      <div className="-mx-8 -mt-8 px-8 pt-8 pb-6 border-b border-gray-100 bg-white">
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">团队成员</h1>
@@ -72,13 +78,15 @@ export default function MembersPage() {
               共 {students.length} 位成员 · {counts.active ?? 0} 位在读
             </p>
           </div>
-          <button
-            onClick={() => setShowInvite(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-black text-white text-sm font-medium rounded-xl hover:bg-gray-800 transition-colors"
-          >
-            <span className="text-base leading-none">+</span>
-            邀请成员
-          </button>
+          {canInvite && (
+            <button
+              onClick={() => setShowInvite(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-black text-white text-sm font-medium rounded-xl hover:bg-gray-800 transition-colors"
+            >
+              <span className="text-base leading-none">+</span>
+              邀请成员
+            </button>
+          )}
         </div>
 
         {/* Filter tabs */}
@@ -105,7 +113,7 @@ export default function MembersPage() {
       </div>
 
       {/* Body */}
-      <div className="px-8 py-6">
+      <div className="-mx-8 -mb-8 px-8 py-6">
         {loading ? (
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {Array.from({ length: 4 }, (_, i) => (
@@ -123,7 +131,7 @@ export default function MembersPage() {
             <p className="text-sm font-medium text-gray-500">
               {filter === "all" ? "暂无团队成员" : `暂无${STATUS_LABELS[filter as StudentStatus]}成员`}
             </p>
-            {filter === "all" && (
+            {filter === "all" && canInvite && (
               <button
                 onClick={() => setShowInvite(true)}
                 className="mt-4 text-sm text-black underline"
@@ -152,6 +160,6 @@ export default function MembersPage() {
           onCreated={handleInvited}
         />
       )}
-    </div>
+    </AppLayout>
   );
 }
