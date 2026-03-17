@@ -1,3 +1,15 @@
+/**
+ * ReportWorkPanel — 历史手动周报查看 / 有限编辑面板
+ *
+ * 职责：
+ *   - 主要用于查看已存在的手动周报（generationStatus = idle/null）
+ *   - draft / needs_revision 状态下提供编辑和提交功能；其余状态只读
+ *   - report = null 时渲染空状态占位，提示用户从左侧选择周报
+ *
+ * 注意：
+ *   新建周报的唯一入口是 GenerateReportWizard（自动汇总向导），
+ *   本组件不承担任何新建逻辑。
+ */
 import React, { useState, useEffect } from "react";
 import { ReportStatusTag } from "@/components/reports/ReportStatusTag";
 import { ReportContentForm } from "@/components/reports/ReportContentForm";

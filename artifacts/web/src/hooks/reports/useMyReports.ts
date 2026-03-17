@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   fetchMyReports,
-  createReport,
   updateReport,
   deleteReport,
 } from "@/api/weeklyReport";
@@ -9,9 +8,7 @@ import { fetchMyStudentProfile, type StudentProfile } from "@/api/users";
 import type {
   WeeklyReport,
   WeeklyReportContent,
-  CreateWeeklyReportPayload,
 } from "@/types/weeklyReport";
-import { getWeekMonday, getWeekSunday } from "@/types/weeklyReport";
 
 // ---------------------------------------------------------------------------
 // useCurrentStudentProfile
@@ -56,7 +53,6 @@ interface UseMyReportsReturn {
   loading: boolean;
   error: string | null;
   reload: () => void;
-  create: (title: string, weekStart: string, weekEnd: string) => Promise<WeeklyReport>;
   save: (id: string, content: WeeklyReportContent, title?: string) => Promise<WeeklyReport>;
   submit: (id: string, content: WeeklyReportContent, title?: string) => Promise<WeeklyReport>;
   remove: (id: string) => Promise<void>;
@@ -84,23 +80,6 @@ export function useMyReports(studentId: string | null): UseMyReportsReturn {
   useEffect(() => {
     load();
   }, [load]);
-
-  const create = useCallback(
-    async (title: string, weekStart: string, weekEnd: string) => {
-      if (!studentId) throw new Error("No student profile bound to this account");
-      const payload: CreateWeeklyReportPayload = {
-        studentId,
-        title,
-        weekStart,
-        weekEnd,
-        status: "draft",
-      };
-      const report = await createReport(payload);
-      setReports((prev) => [report, ...prev]);
-      return report;
-    },
-    [studentId],
-  );
 
   const save = useCallback(
     async (id: string, content: WeeklyReportContent, title?: string) => {
@@ -133,13 +112,5 @@ export function useMyReports(studentId: string | null): UseMyReportsReturn {
     setReports((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
-  return { reports, loading, error, reload: load, create, save, submit, remove };
-}
-
-export function getCurrentWeekDefaults() {
-  const today = new Date();
-  return {
-    weekStart: getWeekMonday(today),
-    weekEnd: getWeekSunday(today),
-  };
+  return { reports, loading, error, reload: load, save, submit, remove };
 }
