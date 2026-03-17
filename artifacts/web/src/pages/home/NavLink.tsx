@@ -15,7 +15,7 @@ export function NavLink({ item, active, badge }: Props) {
     <Link
       href={href}
       className={[
-        "flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors",
+        "flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors cursor-pointer",
         active
           ? "bg-gray-100 text-gray-900 font-medium"
           : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
