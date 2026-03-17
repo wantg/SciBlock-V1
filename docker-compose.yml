@@ -112,6 +112,10 @@ services:
     build:
       context: .
       dockerfile: artifacts/web/Dockerfile.web
+      args:
+        # 构建时参数：设置 VITE_DEV_MODE 以启用辅助登录框
+        # 仅在 .env.docker 中设置 VITE_DEV_MODE=true 时生效
+        VITE_DEV_MODE: ${VITE_DEV_MODE:-false}
     restart: unless-stopped
     depends_on:
       api-server:

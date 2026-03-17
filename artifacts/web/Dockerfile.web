@@ -9,6 +9,10 @@ RUN npm install -g pnpm
 # 防止 rollup 原生模块错误
 ENV ROLLUP_NATIVE=0
 
+# 构建参数：VITE_DEV_MODE（默认 false，仅在需要时通过 --build-arg 传入）
+ARG VITE_DEV_MODE=false
+ENV VITE_DEV_MODE=${VITE_DEV_MODE}
+
 # 复制工作区配置文件
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
