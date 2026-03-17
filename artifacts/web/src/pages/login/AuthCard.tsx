@@ -4,6 +4,22 @@ import { useLogin } from "@/hooks/useLogin";
 import { InputField } from "./InputField";
 import { CheckboxField } from "./CheckboxField";
 import { AuthButton } from "./AuthButton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+// Dev mode quick login accounts
+const DEV_ACCOUNTS = [
+  { label: "手动输入", value: "__manual__", email: "", password: "" },
+  { label: "Dev Instructor", value: "dev@sciblock.local", email: "dev@sciblock.local", password: "DevPass1234" },
+  { label: "Demo Student", value: "demo@sciblock.com", email: "demo@sciblock.com", password: "DemoPass1234" },
+];
+
+const IS_DEV_MODE = import.meta.env.VITE_DEV_MODE === "true";
 
 export function AuthCard() {
   const form = useLogin();
@@ -24,6 +40,38 @@ export function AuthCard() {
           </Link>
         </p>
       </div>
+
+      {IS_DEV_MODE && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <label className="text-xs font-medium text-amber-700 mb-1.5 block">
+            🚀 开发模式：快速选择测试账号
+          </label>
+          <Select
+            onValueChange={(value) => {
+              const account = DEV_ACCOUNTS.find((a) => a.value === value);
+              if (account) {
+                form.quickFill(account.email, account.password);
+              }
+            }}
+          >
+            <SelectTrigger className="w-full bg-white border-amber-200 focus:ring-amber-400">
+              <SelectValue placeholder="选择测试账号..." />
+            </SelectTrigger>
+            <SelectContent>
+              {DEV_ACCOUNTS.map((account) => (
+                <SelectItem key={account.value} value={account.value}>
+                  {account.label}
+                  {account.email && (
+                    <span className="text-gray-400 ml-2 text-xs">
+                      ({account.email})
+                    </span>
+                  )}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <form
         className="flex flex-col gap-4"

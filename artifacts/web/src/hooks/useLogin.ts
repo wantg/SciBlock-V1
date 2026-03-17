@@ -21,6 +21,7 @@ export interface LoginFormState {
   setPassword: (value: string) => void;
   setRememberMe: (value: boolean) => void;
   submit: () => Promise<void>;
+  quickFill: (email: string, password: string) => void;
 }
 
 export function useLogin(): LoginFormState {
@@ -47,6 +48,14 @@ export function useLogin(): LoginFormState {
     setPasswordRaw(value);
     if (passwordError) setPasswordError("");
     if (serverError) setServerError("");
+  }
+
+  function quickFill(emailValue: string, passwordValue: string) {
+    setEmailRaw(emailValue);
+    setPasswordRaw(passwordValue);
+    setEmailError("");
+    setPasswordError("");
+    setServerError("");
   }
 
   function validate(): boolean {
@@ -108,5 +117,6 @@ export function useLogin(): LoginFormState {
     setPassword,
     setRememberMe,
     submit,
+    quickFill,
   };
 }
