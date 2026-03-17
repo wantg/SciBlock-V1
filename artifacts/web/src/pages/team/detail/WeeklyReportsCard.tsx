@@ -17,11 +17,13 @@ import { ReportAddForm }    from "./ReportAddForm";
 interface Props {
   studentId:      string;
   onCountChange?: (count: number) => void;
+  /** When false, the "提交周报" button is hidden. */
+  canEdit?:       boolean;
 }
 
 const INITIAL_LIMIT = 5;
 
-export default function WeeklyReportsCard({ studentId, onCountChange }: Props) {
+export default function WeeklyReportsCard({ studentId, onCountChange, canEdit = true }: Props) {
   const { reports, loading, submitReport } =
     useWeeklyReports(studentId, onCountChange);
 
@@ -36,7 +38,7 @@ export default function WeeklyReportsCard({ studentId, onCountChange }: Props) {
 
   return (
     <div>
-      {showForm && (
+      {canEdit && showForm && (
         <ReportAddForm
           onSave={async data => { await submitReport(data); setShowForm(false); }}
           onCancel={() => setShowForm(false)}
@@ -62,7 +64,7 @@ export default function WeeklyReportsCard({ studentId, onCountChange }: Props) {
             {showAll ? "收起" : `查看全部 ${reports.length} 份`}
           </button>
         )}
-        {!showForm && (
+        {canEdit && !showForm && (
           <button
             onClick={() => setShowForm(true)}
             className="inline-flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full px-3 py-1 transition-colors"

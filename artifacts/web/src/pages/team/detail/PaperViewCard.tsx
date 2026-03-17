@@ -15,12 +15,14 @@ import { PaperTypeTag } from "../../../components/team/PaperTypeTag";
 import { AttrPill }     from "../../../components/team/AttrPill";
 
 export interface PaperViewCardProps {
-  paper:    Paper;
-  onEdit:   () => void;
-  onDelete: () => void;
+  paper:     Paper;
+  onEdit:    () => void;
+  onDelete:  () => void;
+  /** When false, edit/delete controls are hidden. */
+  canEdit?:  boolean;
 }
 
-export function PaperViewCard({ paper, onEdit, onDelete }: PaperViewCardProps) {
+export function PaperViewCard({ paper, onEdit, onDelete, canEdit = true }: PaperViewCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -35,22 +37,24 @@ export function PaperViewCard({ paper, onEdit, onDelete }: PaperViewCardProps) {
         >
           {paper.title}
         </button>
-        <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={onEdit}
-            className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
-            title="编辑"
-          >
-            <Pencil size={11} />
-          </button>
-          <button
-            onClick={onDelete}
-            className="p-1 rounded text-gray-400 hover:text-red-500 transition-colors"
-            title="删除"
-          >
-            <Trash2 size={11} />
-          </button>
-        </div>
+        {canEdit && (
+          <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={onEdit}
+              className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+              title="编辑"
+            >
+              <Pencil size={11} />
+            </button>
+            <button
+              onClick={onDelete}
+              className="p-1 rounded text-gray-400 hover:text-red-500 transition-colors"
+              title="删除"
+            >
+              <Trash2 size={11} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Attribute pills */}

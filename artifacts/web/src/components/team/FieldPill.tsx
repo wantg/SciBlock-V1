@@ -16,6 +16,8 @@ export interface FieldPillProps {
   inputWidth?: string;
   multiline?:  boolean;
   onSave:      (v: string) => Promise<void>;
+  /** When true, renders a static (non-clickable) pill with no edit affordance. */
+  readonly?:   boolean;
 }
 
 export function FieldPill({
@@ -24,6 +26,7 @@ export function FieldPill({
   inputWidth = "w-28",
   multiline  = false,
   onSave,
+  readonly   = false,
 }: FieldPillProps) {
   const [editing, setEditing] = useState(false);
   const [draft,   setDraft]   = useState(value);
@@ -86,6 +89,18 @@ export function FieldPill({
         >
           <X size={10} />
         </button>
+      </span>
+    );
+  }
+
+  if (readonly) {
+    return (
+      <span className="inline-flex items-center gap-1.5 bg-slate-100 border border-transparent rounded-full px-3 py-1">
+        <span className="text-[11px] font-medium text-slate-500">{label}</span>
+        <span className="w-px h-2.5 bg-slate-300" />
+        <span className="text-[11px] text-slate-700">
+          {value || <span className="text-slate-300 italic">未填写</span>}
+        </span>
       </span>
     );
   }

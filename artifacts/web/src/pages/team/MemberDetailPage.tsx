@@ -48,9 +48,15 @@ export default function MemberDetailPage() {
   const [, navigate] = useLocation();
 
   const { currentUser } = useCurrentUser();
-  const isInstructor = currentUser?.role === "instructor";
+  const isInstructor  = currentUser?.role === "instructor";
 
   const { student, loading, error, setStudent } = useStudentDetail(id ?? "");
+
+  // canEdit: instructor can edit any profile; a student can only edit their own.
+  // isOwnProfile relies on student.userId (auth user ID) matching currentUser.id.
+  // If student is not yet loaded, we default to false (deny-until-known).
+  const isOwnProfile = !!student?.userId && student.userId === currentUser?.id;
+  const canEdit      = isInstructor || isOwnProfile;
 
   // Only fetch member's SciNotes when the current user is an instructor.
   // Passing null skips the request entirely — useMemberSciNotes has a null guard.
@@ -111,16 +117,17 @@ export default function MemberDetailPage() {
         reportCount={reportCount}
         noteCount={notes.length}
         onStudentChange={setStudent}
+        canEdit={canEdit}
       />
 
       <section>
         <SectionHeading icon={<FileText size={12} />} title="基本信息" />
-        <BasicInfoCard student={student} onUpdated={setStudent} />
+        <BasicInfoCard student={student} onUpdated={setStudent} canEdit={canEdit} />
       </section>
 
       <section>
         <SectionHeading icon={<BookOpen size={12} />} title="论文信息" count={paperCount} />
-        <PapersCard studentId={student.id} onCountChange={setPaperCount} />
+        <PapersCard studentId={student.id} onCountChange={setPaperCount} canEdit={canEdit} />
       </section>
 
       <section>
@@ -149,7 +156,7 @@ export default function MemberDetailPage() {
 
       <section>
         <SectionHeading icon={<ScrollText size={12} />} title="周报" count={reportCount} />
-        <WeeklyReportsCard studentId={student.id} onCountChange={setReportCount} />
+        <WeeklyReportsCard studentId={student.id} onCountChange={setReportCount} canEdit={canEdit} />
       </section>
     </div>
   );

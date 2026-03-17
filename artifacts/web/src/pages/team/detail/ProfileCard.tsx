@@ -52,11 +52,13 @@ function StatBadge({ value, label }: { value: number; label: string }) {
 // ---------------------------------------------------------------------------
 
 export interface ProfileCardProps {
-  student:        Student;
-  paperCount:     number;
-  reportCount:    number;
-  noteCount:      number;
+  student:         Student;
+  paperCount:      number;
+  reportCount:     number;
+  noteCount:       number;
   onStudentChange: (updated: Student) => void;
+  /** When false, the status tag is read-only and cannot be clicked. */
+  canEdit?:        boolean;
 }
 
 export function ProfileCard({
@@ -65,6 +67,7 @@ export function ProfileCard({
   reportCount,
   noteCount,
   onStudentChange,
+  canEdit = true,
 }: ProfileCardProps) {
   const pal = palette(student.name);
 
@@ -115,6 +118,7 @@ export function ProfileCard({
                 onSave={handleStatusSave}
                 stopPropagation={false}
                 compact
+                readonly={!canEdit}
               />
             </div>
 

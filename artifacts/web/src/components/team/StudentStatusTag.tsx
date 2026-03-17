@@ -22,6 +22,8 @@ export interface StudentStatusTagProps {
   stopPropagation?: boolean;
   /** 紧凑模式：不显示下箭头 */
   compact?: boolean;
+  /** 只读模式：仅展示，不允许点击切换状态 */
+  readonly?: boolean;
 }
 
 export function StudentStatusTag({
@@ -29,6 +31,7 @@ export function StudentStatusTag({
   onSave,
   stopPropagation = true,
   compact         = false,
+  readonly        = false,
 }: StudentStatusTagProps) {
   const [open,   setOpen]   = useState(false);
   const [saving, setSaving] = useState(false);
@@ -63,6 +66,21 @@ export function StudentStatusTag({
   }
 
   const sc = STATUS_COLORS[status] ?? STATUS_COLORS.active;
+
+  if (readonly) {
+    return (
+      <span
+        className={`
+          inline-flex items-center gap-1 px-2.5 py-1 rounded-full
+          text-xs font-medium select-none
+          ${sc.bg} ${sc.text} ring-1 ${sc.ring}
+        `}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+        {STATUS_LABELS[status]}
+      </span>
+    );
+  }
 
   return (
     <div ref={ref} className="relative inline-block">
