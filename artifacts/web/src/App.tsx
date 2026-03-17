@@ -49,7 +49,7 @@ function AuthenticatedRouter() {
         {/* Reinitialize wizard for an existing SciNote */}
         <Route path="/personal/reinitialize/:id" component={ReinitializeExperimentPage} />
         {/* Experiment workbench — three-panel recording page for a SciNote */}
-        <Route path="/personal/experiment/:id/workbench" component={ExperimentWorkbenchPage} />
+        <Route path="/personal/experiment/:sciNoteId/workbench" component={ExperimentWorkbenchPage} />
         {/* Wizard-created SciNotes — detail page with full form data */}
         <Route path="/personal/experiment/:id" component={ExperimentDetailPage} />
         {/* Placeholder SciNotes — legacy stub */}

@@ -59,16 +59,16 @@ function WorkbenchAppLayout() {
 // ---------------------------------------------------------------------------
 
 /**
- * ExperimentWorkbenchPage — route /personal/experiment/:id/workbench
+ * ExperimentWorkbenchPage — route /personal/experiment/:sciNoteId/workbench
  *
  * WorkbenchProvider is mounted *outside* AppLayout so that WorkbenchAppLayout
  * (inside the provider) can read the live record title.
  *
- * key={id} ensures the provider re-mounts when navigating between SciNotes.
+ * key={sciNoteId} ensures the provider re-mounts when navigating between SciNotes.
  * extraRecords seeds any records previously restored from the trash this session.
  */
 export function ExperimentWorkbenchPage() {
-  const { id } = useParams<{ id: string }>();
+  const { sciNoteId } = useParams<{ sciNoteId: string }>();
   const search = useSearch();
   const initialRecordId = new URLSearchParams(search).get("experimentId") ?? undefined;
   const { notes } = useSciNoteStore();
@@ -83,7 +83,7 @@ export function ExperimentWorkbenchPage() {
   // -----------------------------------------------------------------
   const extraRecordsRef = useRef<ExperimentRecord[] | null>(null);
   if (extraRecordsRef.current === null) {
-    extraRecordsRef.current = getRestoredForSciNote(id);
+    extraRecordsRef.current = getRestoredForSciNote(sciNoteId);
   }
 
   // Clear the pool after the first render so that future remounts of this
@@ -91,11 +91,11 @@ export function ExperimentWorkbenchPage() {
   // and do NOT re-inject already-consumed records.
   // useEffect is the only safe place to call setState (i.e. clearRestoredForSciNote).
   useEffect(() => {
-    clearRestoredForSciNote(id);
+    clearRestoredForSciNote(sciNoteId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally empty — runs once per mount, just like the ref read above
 
-  const note = notes.find((n) => n.id === id);
+  const note = notes.find((n) => n.id === sciNoteId);
 
   if (!note) {
     return (
@@ -115,8 +115,8 @@ export function ExperimentWorkbenchPage() {
 
   return (
     <WorkbenchProvider
-      key={id}
-      sciNoteId={id}
+      key={sciNoteId}
+      sciNoteId={sciNoteId}
       sciNoteTitle={note.title}
       experimentType={note.experimentType}
       objective={note.objective}

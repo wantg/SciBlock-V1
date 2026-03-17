@@ -15,6 +15,13 @@
       "when": 1773566818962,
       "tag": "0001_many_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773773361391,
+      "tag": "0002_short_blue_shield",
+      "breakpoints": true
     }
   ]
 }
