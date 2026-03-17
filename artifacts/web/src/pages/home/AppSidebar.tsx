@@ -123,7 +123,7 @@ export function AppSidebar() {
                       noteId={note.id}
                       title={note.title}
                       href={href}
-                      active={location === href}
+                      active={location === href || location.startsWith(href + "/")}
                       isRenaming={actions.renamingNoteId === note.id}
                       onRenameRequest={actions.renameRequest}
                       onRenameCommit={(newTitle) => actions.renameCommit(note.id, newTitle)}

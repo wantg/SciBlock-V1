@@ -69,6 +69,8 @@ const EMPTY_RECORD: ExperimentRecord = {
 
 interface WorkbenchContextValue {
   // SciNote-level metadata (read-only, from the parent SciNote)
+  /** The title of the parent SciNote / project. Read-only display field. */
+  sciNoteTitle: string;
   experimentType?: string;
   objective?: string;
 
@@ -709,6 +711,7 @@ export function WorkbenchProvider({
   // ---------------------------------------------------------------------------
 
   const value: WorkbenchContextValue = {
+    sciNoteTitle,
     experimentType,
     objective,
     records,

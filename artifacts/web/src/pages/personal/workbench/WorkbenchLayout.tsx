@@ -54,41 +54,54 @@ function FocusDivider() {
 }
 
 /**
- * ExperimentInfoBar — slim read-only strip showing SciNote-level metadata.
- *
- * Appears between RecordSwitcher and the three-panel area.
- * Rendered only when at least one of experimentType or objective is set.
+ * ExperimentInfoBar — slim context strip shown between RecordSwitcher and the
+ * three-panel area.  Always rendered inside the workbench.
  *
  * Layout:
- *   [🔬 实验类型 badge]   [目标: 实验目标（截断，hover 展开）]
+ *   项目 <sciNoteTitle>  [·  🔬 experimentType]  [·  目标: objective]
+ *
+ * The project label is always visible so users know which SciNote they are in.
+ * experimentType and objective appear only when set.
  */
 function ExperimentInfoBar() {
-  const { experimentType, objective } = useWorkbench();
-
-  if (!experimentType && !objective) return null;
+  const { sciNoteTitle, experimentType, objective } = useWorkbench();
 
   return (
     <div className="flex items-center gap-3 px-4 py-1.5 bg-gray-50 border-b border-gray-100 min-h-0 flex-shrink-0">
-      {/* Left — experiment type badge */}
-      {experimentType ? (
+      {/* Project label — always visible */}
+      <span className="flex items-center gap-1.5 flex-shrink-0 min-w-0 max-w-[180px]">
+        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide flex-shrink-0">
+          项目
+        </span>
+        <span
+          className="text-xs font-medium text-gray-700 truncate"
+          title={sciNoteTitle}
+        >
+          {sciNoteTitle || "—"}
+        </span>
+      </span>
+
+      {/* Divider — only when more metadata follows */}
+      {(experimentType || objective) && (
+        <span className="text-gray-200 text-xs flex-shrink-0">·</span>
+      )}
+
+      {/* Experiment type badge */}
+      {experimentType && (
         <span className="flex items-center gap-1.5 flex-shrink-0">
           <FlaskConical size={11} className="text-violet-400" />
           <span className="text-xs font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2 py-0.5 leading-none">
             {experimentType}
           </span>
         </span>
-      ) : (
-        <span className="flex items-center gap-1.5 flex-shrink-0">
-          <FlaskConical size={11} className="text-gray-300" />
-        </span>
       )}
 
-      {/* Divider — only when both are present */}
+      {/* Divider — only when objective follows type */}
       {experimentType && objective && (
         <span className="text-gray-200 text-xs flex-shrink-0">·</span>
       )}
 
-      {/* Right — objective (truncated, native tooltip for full text) */}
+      {/* Objective (truncated, native tooltip for full text) */}
       {objective && (
         <span
           title={objective}
@@ -120,7 +133,7 @@ export function WorkbenchLayout() {
       {/* Record switcher spans the full width above the info bar and panels */}
       <RecordSwitcher />
 
-      {/* Slim metadata bar — only visible when experimentType or objective is set */}
+      {/* Context bar — always visible: project name + optional experiment metadata */}
       <ExperimentInfoBar />
 
       {/* Three-panel area */}
