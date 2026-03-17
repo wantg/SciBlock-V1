@@ -153,9 +153,10 @@ const POLICIES: PolicyMap = {
   'team.invite': {
     create: instructorOnly,
   },
+  // 后端限制：PATCH /members/:id 仅导师可编辑
   'team.profile': {
     view: canViewDefault,
-    edit: ownerOrInstructor,
+    edit: instructorOnly,  // 仅导师可编辑
     manage: instructorOnly,
   },
   'team.status': {
@@ -163,18 +164,22 @@ const POLICIES: PolicyMap = {
     edit: instructorOnly,  // 目前只有导师可以修改状态
     manage: instructorOnly,
   },
+  // 后端限制：POST/DELETE /members/:id/papers 仅导师可操作
   'team.papers': {
     view: canViewDefault,
-    create: ownerOrInstructor,
-    edit: ownerOrInstructor,
-    delete: ownerOrInstructor,
+    create: instructorOnly,  // 仅导师可添加
+    edit: instructorOnly,    // 仅导师可编辑
+    delete: instructorOnly,  // 仅导师可删除
     manage: instructorOnly,
   },
+  // 后端限制：
+  // - POST /members/:id/reports 仅导师可提交
+  // - DELETE /reports/:id 学生可删除自己的，导师可删除所有
   'team.reports': {
     view: canViewDefault,
-    create: ownerOrInstructor,
-    edit: ownerOrInstructor,
-    delete: instructorOnly,
+    create: instructorOnly,     // 仅导师可通过 /team/members/:id/reports 提交
+    edit: ownerOrInstructor,    // 学生可编辑自己的，导师可编辑所有
+    delete: ownerOrInstructor,  // 学生可删除自己的，导师可删除所有
     manage: instructorOnly,
   },
   'team.experiments': {
@@ -200,8 +205,9 @@ const POLICIES: PolicyMap = {
   'report.delete': {
     delete: instructorOnly,
   },
+  // 后端限制：POST /reports/:id/comments 仅导师可评论
   'report.comment': {
-    create: canViewDefault,  // 能看就能评论
+    create: instructorOnly,  // 仅导师可评论
     edit: ownerOnly,         // 只能编辑自己的评论
     delete: ownerOrInstructor,
   },
