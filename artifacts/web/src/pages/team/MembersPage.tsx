@@ -9,6 +9,7 @@ import { useLocation } from "wouter";
 import type { Student, StudentStatus } from "../../types/team";
 import { STATUS_LABELS } from "../../types/team";
 import { fetchMembers } from "../../api/team";
+import { useCurrentUser } from "../../contexts/UserContext";
 import MemberCard  from "./MemberCard";
 import InviteModal from "./InviteModal";
 
@@ -21,6 +22,8 @@ const STATUS_FILTERS: { value: StudentStatus | "all"; label: string }[] = [
 
 export default function MembersPage() {
   const [, navigate]    = useLocation();
+  const { currentUser } = useCurrentUser();
+  const isInstructor    = currentUser?.role === "instructor";
   const [students, setStudents] = useState<Student[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState<string | null>(null);
@@ -72,13 +75,15 @@ export default function MembersPage() {
               共 {students.length} 位成员 · {counts.active ?? 0} 位在读
             </p>
           </div>
-          <button
-            onClick={() => setShowInvite(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-black text-white text-sm font-medium rounded-xl hover:bg-gray-800 transition-colors"
-          >
-            <span className="text-base leading-none">+</span>
-            邀请成员
-          </button>
+          {isInstructor && (
+            <button
+              onClick={() => setShowInvite(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-black text-white text-sm font-medium rounded-xl hover:bg-gray-800 transition-colors"
+            >
+              <span className="text-base leading-none">+</span>
+              邀请成员
+            </button>
+          )}
         </div>
 
         {/* Filter tabs */}
@@ -123,7 +128,7 @@ export default function MembersPage() {
             <p className="text-sm font-medium text-gray-500">
               {filter === "all" ? "暂无团队成员" : `暂无${STATUS_LABELS[filter as StudentStatus]}成员`}
             </p>
-            {filter === "all" && (
+            {filter === "all" && isInstructor && (
               <button
                 onClick={() => setShowInvite(true)}
                 className="mt-4 text-sm text-black underline"
