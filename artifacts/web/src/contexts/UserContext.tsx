@@ -20,6 +20,7 @@ import React, {
 import type { User } from "../types/auth";
 import { clearSession, getStoredToken } from "../api/client";
 import { me } from "../api/auth";
+import { useStorageSync } from "@/hooks/useStorageSync";
 
 const STORAGE_KEY = "sciblock:currentUser";
 
@@ -71,6 +72,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
     clearSession();
     setCurrentUserState(null);
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Cross-tab synchronization: sync user state when other tabs modify localStorage
+  // ---------------------------------------------------------------------------
+  useStorageSync<User>({
+    key: STORAGE_KEY as `sciblock:${string}`,
+    onChange: (newUser) => {
+      if (newUser) {
+        // 其他标签页登录了新用户
+        setCurrentUserState(newUser);
+      } else {
+        // 其他标签页登出了
+        setCurrentUserState(null);
+      }
+    },
+  });
 
   // ---------------------------------------------------------------------------
   // On mount: verify the stored token against the server and sync the user.

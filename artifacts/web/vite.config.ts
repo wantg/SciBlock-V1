@@ -4,14 +4,9 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-const rawPort = process.env.PORT;
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
+// 开发服务器默认端口，生产构建时不需要
+const DEFAULT_PORT = 22333;
+const rawPort = process.env.PORT ?? String(DEFAULT_PORT);
 const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {

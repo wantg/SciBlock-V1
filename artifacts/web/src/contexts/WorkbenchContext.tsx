@@ -35,6 +35,7 @@ import {
 } from "@/data/workbenchStorage";
 import { useTrash } from "@/contexts/TrashContext";
 import { useToast } from "@/hooks/use-toast";
+import { withRollback, createDebouncedSave, type DebouncedSaveState } from "@/lib/optimisticUpdate";
 import {
   listExperiments,
   createExperiment,
@@ -128,6 +129,10 @@ interface WorkbenchContextValue {
   updateReport: (html: string) => void;
   /** Clear the generated report (reset to idle). */
   clearReport: () => void;
+
+  // Editor save state
+  /** Current save status for editor content */
+  editorSaveState: DebouncedSaveState;
 }
 
 // ---------------------------------------------------------------------------
@@ -248,12 +253,25 @@ export function WorkbenchProvider({
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportError, setReportError] = useState(false);
 
+  // Editor save state with debounce tracking
+  const [editorSaveState, setEditorSaveState] = useState<DebouncedSaveState>({ status: "idle" });
+
   // Editor insert bridge (registered by EditorPanel)
   const editorInsertRef = useRef<((html: string) => void) | null>(null);
 
   // Debounce timers for high-frequency API writes
-  const editorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modulesDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Editor save with debounce and state tracking
+  const editorSaveRef = useRef(
+    createDebouncedSave(
+      async (html: string) => {
+        if (!isServerId(currentRecord.id)) return;
+        await updateExperiment(currentRecord.id, { editorContent: html });
+      },
+      1500
+    )
+  );
 
   /**
    * Returns true if the ID is a server-assigned UUID (contains hyphens).
@@ -452,26 +470,34 @@ export function WorkbenchProvider({
   }
 
   function updateTitle(title: string) {
-    patchCurrentRecord({ title });
-    if (!isServerId(currentRecord.id)) return; // skip if server UUID not yet assigned
-    updateExperiment(currentRecord.id, { title }).catch(() => {
-      toast({
-        title: "保存失败",
-        description: "标题未能同步到服务器",
-        variant: "destructive",
-      });
+    const previousTitle = currentRecord.title;
+    
+    if (!isServerId(currentRecord.id)) {
+      patchCurrentRecord({ title });
+      return;
+    }
+
+    withRollback({
+      optimistic: () => patchCurrentRecord({ title }),
+      apiCall: () => updateExperiment(currentRecord.id, { title }),
+      rollback: () => patchCurrentRecord({ title: previousTitle }),
+      errorMessage: "标题保存失败，已恢复原始值",
     });
   }
 
   function updateStatus(experimentStatus: ExperimentStatus) {
-    patchCurrentRecord({ experimentStatus });
-    if (!isServerId(currentRecord.id)) return;
-    updateExperiment(currentRecord.id, { experimentStatus }).catch(() => {
-      toast({
-        title: "保存失败",
-        description: "状态未能同步到服务器",
-        variant: "destructive",
-      });
+    const previousStatus = currentRecord.experimentStatus;
+    
+    if (!isServerId(currentRecord.id)) {
+      patchCurrentRecord({ experimentStatus });
+      return;
+    }
+
+    withRollback({
+      optimistic: () => patchCurrentRecord({ experimentStatus }),
+      apiCall: () => updateExperiment(currentRecord.id, { experimentStatus }),
+      rollback: () => patchCurrentRecord({ experimentStatus: previousStatus }),
+      errorMessage: "状态保存失败，已恢复",
     });
   }
 
@@ -483,47 +509,45 @@ export function WorkbenchProvider({
     const trimmed = tag.trim();
     if (!trimmed) return;
     if (currentRecord.tags.includes(trimmed)) return;
-    const newTags = [...currentRecord.tags, trimmed];
-    patchCurrentRecord({ tags: newTags });
-    if (!isServerId(currentRecord.id)) return;
-    updateExperiment(currentRecord.id, { tags: newTags }).catch(() => {
-      toast({
-        title: "保存失败",
-        description: "标签未能同步到服务器",
-        variant: "destructive",
-      });
+
+    const previousTags = [...currentRecord.tags];
+    const newTags = [...previousTags, trimmed];
+
+    if (!isServerId(currentRecord.id)) {
+      patchCurrentRecord({ tags: newTags });
+      return;
+    }
+
+    withRollback({
+      optimistic: () => patchCurrentRecord({ tags: newTags }),
+      apiCall: () => updateExperiment(currentRecord.id, { tags: newTags }),
+      rollback: () => patchCurrentRecord({ tags: previousTags }),
+      errorMessage: `标签 "${trimmed}" 添加失败，请重试`,
     });
   }
 
   function removeTag(tag: string) {
-    const newTags = currentRecord.tags.filter((t) => t !== tag);
+    const previousTags = [...currentRecord.tags];
+    const newTags = previousTags.filter((t) => t !== tag);
+
     patchCurrentRecord({ tags: newTags });
+
     if (!isServerId(currentRecord.id)) return;
-    updateExperiment(currentRecord.id, { tags: newTags }).catch(() => {
-      toast({
-        title: "保存失败",
-        description: "标签未能同步到服务器",
-        variant: "destructive",
-      });
+
+    withRollback({
+      optimistic: () => {},
+      apiCall: () => updateExperiment(currentRecord.id, { tags: newTags }),
+      rollback: () => patchCurrentRecord({ tags: previousTags }),
+      errorMessage: "标签删除失败，请重试",
     });
   }
 
   function updateEditorContent(html: string) {
+    // 立即更新本地状态
     patchCurrentRecord({ editorContent: html });
-
-    // Debounced PATCH — avoid high-frequency requests from TipTap
-    if (editorDebounceRef.current) clearTimeout(editorDebounceRef.current);
-    const recId = currentRecord.id;
-    if (!isServerId(recId)) return; // skip if server UUID not yet assigned
-    editorDebounceRef.current = setTimeout(() => {
-      updateExperiment(recId, { editorContent: html }).catch(() => {
-        toast({
-          title: "保存失败",
-          description: "编辑内容未能同步到服务器",
-          variant: "destructive",
-        });
-      });
-    }, 1500);
+    
+    // 调度防抖保存
+    editorSaveRef.current.schedule(html, setEditorSaveState);
   }
 
   // ---------------------------------------------------------------------------
@@ -749,6 +773,7 @@ export function WorkbenchProvider({
     triggerReportGeneration,
     updateReport,
     clearReport,
+    editorSaveState,
   };
 
   return (

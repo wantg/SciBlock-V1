@@ -1,6 +1,13 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import type { ExperimentRecord } from "@/types/workbench";
 import type { DeletedRecord } from "@/types/trash";
+import { useStorageSync } from "@/hooks/useStorageSync";
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const TRASH_STORAGE_KEY = "sciblock:trash";
 
 // ---------------------------------------------------------------------------
 // Context shape
@@ -23,7 +30,7 @@ interface TrashContextValue {
   /**
    * Restore a trashed record.
    * Removes it from trash and places it in the restoredRecords pool.
-   * WorkbenchProvider picks it up via getRestoredForSciNote() on next mount.
+   * WorkbenchProvider reads this to reinsert restored records on mount.
    */
   restoreRecord: (recordId: string) => void;
 
@@ -64,7 +71,15 @@ export function useTrash(): TrashContextValue {
 // ---------------------------------------------------------------------------
 
 export function TrashProvider({ children }: { children: React.ReactNode }) {
-  const [trashedRecords, setTrashedRecords] = useState<DeletedRecord[]>([]);
+  // 从 localStorage 初始化
+  const [trashedRecords, setTrashedRecords] = useState<DeletedRecord[]>(() => {
+    try {
+      const stored = localStorage.getItem(TRASH_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
 
   /**
    * restoredPool: records removed from trash, grouped by sciNoteId.
@@ -73,6 +88,23 @@ export function TrashProvider({ children }: { children: React.ReactNode }) {
   const [restoredPool, setRestoredPool] = useState<
     Record<string, ExperimentRecord[]>
   >({});
+
+  // 持久化到 localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(TRASH_STORAGE_KEY, JSON.stringify(trashedRecords));
+    } catch {
+      // 忽略存储错误（如隐私模式、存储已满等）
+    }
+  }, [trashedRecords]);
+
+  // 跨标签页同步
+  useStorageSync<DeletedRecord[]>({
+    key: TRASH_STORAGE_KEY as `sciblock:${string}`,
+    onChange: (newTrash) => {
+      if (newTrash) setTrashedRecords(newTrash);
+    },
+  });
 
   // ---------------------------------------------------------------------------
   // Actions

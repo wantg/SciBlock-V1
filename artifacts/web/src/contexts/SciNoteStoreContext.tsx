@@ -4,6 +4,8 @@ import type { WizardFormData } from "@/types/wizardForm";
 import { getExperimentName } from "@/types/experimentFields";
 import { loadSciNotes, saveSciNotes } from "@/data/scinoteStorage";
 import { clearWorkbenchRecords } from "@/data/workbenchStorage";
+import { useStorageSync } from "@/hooks/useStorageSync";
+import { toast } from "@/hooks/use-toast";
 import {
   listSciNotes,
   createSciNoteApi,
@@ -107,6 +109,20 @@ export function SciNoteStoreProvider({ children }: { children: React.ReactNode }
   }, [notes]);
 
   // ---------------------------------------------------------------------------
+  // Cross-tab synchronization
+  // ---------------------------------------------------------------------------
+
+  useStorageSync<SciNote[]>({
+    key: "sciblock:scinotes" as `sciblock:${string}`,
+    onChange: (newNotes) => {
+      if (newNotes && apiReady) {
+        // 只有当 API 已就绪时才同步（避免初始化时的冲突）
+        setNotes(newNotes);
+      }
+    },
+  });
+
+  // ---------------------------------------------------------------------------
   // CRUD
   // ---------------------------------------------------------------------------
 
@@ -145,22 +161,42 @@ export function SciNoteStoreProvider({ children }: { children: React.ReactNode }
   }
 
   function renameSciNote(id: string, newTitle: string) {
+    const previousNotes = [...notes];
+    const noteToRename = previousNotes.find((n) => n.id === id);
+    
+    if (!noteToRename) return;
+
+    // 乐观更新
     setNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, title: newTitle } : n)),
+      prev.map((n) => (n.id === id ? { ...n, title: newTitle } : n))
     );
-    if (apiReady) {
-      updateSciNote(id, { title: newTitle }).catch(() => {
-        // fire-and-forget — local state already updated
+
+    if (!apiReady) return;
+
+    // API 调用和错误处理
+    updateSciNote(id, { title: newTitle }).catch(() => {
+      // 回滚
+      setNotes(previousNotes);
+      
+      toast({
+        title: "重命名失败",
+        description: "笔记标题未能修改，请稍后重试",
+        variant: "destructive",
       });
-    }
+    });
   }
 
   function reinitializeSciNote(id: string, newFormData: WizardFormData) {
+    const previousNotes = [...notes];
+    const note = previousNotes.find((n) => n.id === id);
+    if (!note) return;
+
     const fields = newFormData.step2.fields;
     const newTitle = getExperimentName(fields);
     const experimentType = fields.find((f) => f.name === "实验类型")?.value?.trim() || undefined;
     const objective = fields.find((f) => f.name === "实验目标")?.value?.trim() || undefined;
 
+    // 乐观更新
     setNotes((prev) =>
       prev.map((n) =>
         n.id === id
@@ -173,27 +209,50 @@ export function SciNoteStoreProvider({ children }: { children: React.ReactNode }
               kind: "wizard" as const,
             }
           : n,
-      ),
+      )
     );
 
-    if (apiReady) {
-      updateSciNote(id, {
-        title: newTitle || undefined,
-        experimentType,
-        objective,
-        formData: newFormData,
-      }).catch(() => {
-        // fire-and-forget
+    if (!apiReady) return;
+
+    updateSciNote(id, {
+      title: newTitle || undefined,
+      experimentType,
+      objective,
+      formData: newFormData,
+    }).catch(() => {
+      // 回滚
+      setNotes(previousNotes);
+      
+      toast({
+        title: "更新失败",
+        description: "实验数据未能更新，请稍后重试",
+        variant: "destructive",
       });
-    }
+    });
   }
 
-  function deleteSciNote(id: string) {
+  async function deleteSciNote(id: string) {
+    const previousNotes = [...notes];
+    const deletedNote = previousNotes.find((n) => n.id === id);
+    
+    if (!deletedNote) return;
+
+    // 乐观删除
     setNotes((prev) => prev.filter((n) => n.id !== id));
     clearWorkbenchRecords(id);
-    if (apiReady) {
-      deleteSciNoteApi(id).catch(() => {
-        // fire-and-forget
+
+    if (!apiReady) return;
+
+    try {
+      await deleteSciNoteApi(id);
+    } catch {
+      // 恢复被删除的笔记
+      setNotes(previousNotes);
+      
+      toast({
+        title: "删除失败",
+        description: "笔记未能删除，请稍后重试",
+        variant: "destructive",
       });
     }
   }
