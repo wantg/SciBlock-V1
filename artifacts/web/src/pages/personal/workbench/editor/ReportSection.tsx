@@ -23,6 +23,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useWorkbench } from "@/contexts/WorkbenchContext";
 import { ReportProgress } from "./ReportProgress";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { OntologyModuleKey } from "@/types/workbench";
 import type { ReportStatus } from "@/types/report";
 
@@ -38,6 +39,8 @@ export function ReportSection() {
   const [isEditing, setIsEditing] = useState(false);
   // Track whether we are in "retry after error" state
   const latestReportHtmlRef = useRef(currentRecord.reportHtml ?? "");
+  // Confirm dialog state for regeneration
+  const [regenerateConfirmOpen, setRegenerateConfirmOpen] = useState(false);
 
   const confirmedKeys = currentRecord.currentModules
     .filter((m) => m.status === "confirmed")
@@ -102,8 +105,12 @@ export function ReportSection() {
     setIsEditing(false);
   }
 
-  function handleRegenerate() {
-    if (!window.confirm("重新生成将覆盖当前报告，确认继续？")) return;
+  function handleRegenerateRequest() {
+    setRegenerateConfirmOpen(true);
+  }
+
+  function handleConfirmRegenerate() {
+    setRegenerateConfirmOpen(false);
     clearReport();
     triggerReportGeneration();
   }
@@ -120,7 +127,7 @@ export function ReportSection() {
         {reportStatus === "ready" && !isEditing && (
           <div className="flex items-center gap-2">
             <button
-              onClick={handleRegenerate}
+              onClick={handleRegenerateRequest}
               className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
             >
               重新生成
@@ -196,6 +203,18 @@ export function ReportSection() {
           </div>
         )}
       </div>
+
+      {/* Regenerate confirmation dialog */}
+      <ConfirmDialog
+        open={regenerateConfirmOpen}
+        danger
+        title="重新生成报告"
+        description="重新生成将覆盖当前报告内容，此操作不可撤销。确认继续？"
+        confirmLabel="确认重新生成"
+        cancelLabel="取消"
+        onConfirm={handleConfirmRegenerate}
+        onCancel={() => setRegenerateConfirmOpen(false)}
+      />
     </div>
   );
 }
