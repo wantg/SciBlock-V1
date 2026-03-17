@@ -52,4 +52,10 @@ type ExperimentRepository interface {
         // limit must be between 1 and 50 (inclusive); the caller is responsible for
         // clamping the value before calling this method.
         ListRecentByUser(ctx context.Context, userID string, limit int) ([]domain.RecentExperimentRow, error)
+
+        // CountBySciNoteIDs returns a map[sciNoteID]count of non-deleted experiment
+        // records for each ID in the supplied slice.  SciNote IDs with zero records
+        // are omitted from the returned map (callers should use map[id] with 0 default).
+        // A single SQL query is issued regardless of the number of IDs.
+        CountBySciNoteIDs(ctx context.Context, ids []string) (map[string]int, error)
 }

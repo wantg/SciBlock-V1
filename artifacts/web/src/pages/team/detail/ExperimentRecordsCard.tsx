@@ -37,9 +37,9 @@ function kindMeta(kind: SciNote["kind"]) {
 // ---------------------------------------------------------------------------
 
 interface RecordRowProps {
-  note:       SciNote;
-  isSelected: boolean;
-  onClick:    () => void;
+  note:            SciNote;
+  isSelected:      boolean;
+  onClick:         () => void;
 }
 
 function RecordRow({ note, isSelected, onClick }: RecordRowProps) {
@@ -81,15 +81,18 @@ function RecordRow({ note, isSelected, onClick }: RecordRowProps) {
           {note.title || "无标题实验"}
         </button>
 
-        {/* Date pill — only in unselected state */}
-        {note.createdAt && !isSelected && (
-          <span className="flex-shrink-0 inline-flex items-center bg-slate-100 rounded-full px-2.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <span className="text-xs text-slate-500">
-              {new Date(note.createdAt).toLocaleDateString("zh-CN", {
-                month: "2-digit",
-                day:   "2-digit",
-              })}
-            </span>
+        {/* Experiment count badge */}
+        {note.experimentCount !== undefined && (
+          <span
+            className={[
+              "flex-shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium leading-none",
+              isSelected
+                ? "bg-white/15 text-white/80"
+                : "bg-gray-100 text-gray-500",
+            ].join(" ")}
+            title={`${note.experimentCount} 条实验记录`}
+          >
+            {note.experimentCount}
           </span>
         )}
 

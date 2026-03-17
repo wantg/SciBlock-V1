@@ -28,15 +28,17 @@ import { apiResponseToRecord } from "./experiments";
 // ---------------------------------------------------------------------------
 
 interface ApiMemberSciNote {
-  id:             string;
-  userId:         string;
-  title:          string;
-  kind:           string;
-  experimentType: string | null;
-  objective:      string | null;
-  formData:       WizardFormData | null;
-  createdAt:      string;
-  updatedAt:      string;
+  id:              string;
+  userId:          string;
+  title:           string;
+  kind:            string;
+  experimentType:  string | null;
+  objective:       string | null;
+  formData:        WizardFormData | null;
+  createdAt:       string;
+  updatedAt:       string;
+  /** Populated by the instructor endpoint; absent for student-scoped calls. */
+  experimentCount?: number;
 }
 
 /**
@@ -77,14 +79,15 @@ interface ListMemberExperimentsResponse {
 
 function normalizeMemberSciNote(api: ApiMemberSciNote): SciNote {
   return {
-    id:             api.id,
-    title:          api.title,
-    kind:           api.kind as SciNote["kind"],
-    experimentType: api.experimentType ?? undefined,
-    objective:      api.objective ?? undefined,
-    formData:       api.formData ?? undefined,
-    createdAt:      api.createdAt,
-    updatedAt:      api.updatedAt,
+    id:              api.id,
+    title:           api.title,
+    kind:            api.kind as SciNote["kind"],
+    experimentType:  api.experimentType ?? undefined,
+    objective:       api.objective ?? undefined,
+    formData:        api.formData ?? undefined,
+    createdAt:       api.createdAt,
+    updatedAt:       api.updatedAt,
+    experimentCount: api.experimentCount,
   };
 }
 

@@ -127,7 +127,9 @@ export default function MemberDetailPage() {
         <SectionHeading
           icon={<FlaskConical size={12} />}
           title="实验记录"
-          count={isInstructor ? notes.length : undefined}
+          count={isInstructor
+            ? notes.reduce((sum, n) => sum + (n.experimentCount ?? 0), 0)
+            : undefined}
         />
         {isInstructor ? (
           <ExperimentRecordsCard

@@ -320,3 +320,38 @@ func scanExperiment(row expScanner) (*domain.ExperimentRecord, error) {
                 UpdatedAt:          updatedAt,
         }, nil
 }
+
+// CountBySciNoteIDs returns a map[sciNoteID]count of non-deleted experiment records
+// for each of the given SciNote IDs.  Uses a single ANY($1) query.
+// SciNote IDs with zero records are omitted from the map.
+func (r *pgxExperimentRepository) CountBySciNoteIDs(ctx context.Context, ids []string) (map[string]int, error) {
+        if len(ids) == 0 {
+                return map[string]int{}, nil
+        }
+
+        rows, err := r.pool.Query(ctx,
+                `SELECT sci_note_id, COUNT(*)::int
+                 FROM experiment_records
+                 WHERE sci_note_id = ANY($1) AND is_deleted = false
+                 GROUP BY sci_note_id`,
+                ids,
+        )
+        if err != nil {
+                return nil, fmt.Errorf("CountBySciNoteIDs query: %w", err)
+        }
+        defer rows.Close()
+
+        result := make(map[string]int, len(ids))
+        for rows.Next() {
+                var sciNoteID string
+                var count int
+                if err := rows.Scan(&sciNoteID, &count); err != nil {
+                        return nil, fmt.Errorf("CountBySciNoteIDs scan: %w", err)
+                }
+                result[sciNoteID] = count
+        }
+        if err := rows.Err(); err != nil {
+                return nil, fmt.Errorf("CountBySciNoteIDs rows: %w", err)
+        }
+        return result, nil
+}

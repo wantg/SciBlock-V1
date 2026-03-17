@@ -25,4 +25,13 @@ export interface SciNote {
   experimentType?: string;
   /** 实验目标 — the research objective stated in the initialization wizard. */
   objective?: string;
+
+  // ---------------------------------------------------------------------------
+  // Instructor-only computed field — populated only by the
+  // GET /api/instructor/members/:userId/scinotes endpoint.
+  // Undefined when loaded via the student's own /api/scinotes endpoint.
+  // ---------------------------------------------------------------------------
+
+  /** Number of non-deleted experiment records under this SciNote. */
+  experimentCount?: number;
 }

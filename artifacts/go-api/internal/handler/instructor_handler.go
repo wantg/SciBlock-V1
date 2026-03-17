@@ -33,9 +33,9 @@ func NewInstructorHandler(
 
 // ListMemberSciNotes handles GET /api/instructor/members/:userId/scinotes
 //
-// Returns all non-deleted SciNotes owned by the target user.
-// Reuses SciNoteService.List — passing targetUserID in place of callerUserID
-// is safe here because the instructor middleware already verified authority.
+// Returns all non-deleted SciNotes owned by the target user, enriched with
+// experimentCount — the number of non-deleted experiment records per SciNote.
+// A single COUNT query is issued after listing the SciNotes (N+1-free).
 func (h *InstructorHandler) ListMemberSciNotes(w http.ResponseWriter, r *http.Request) {
         targetUserID := chi.URLParam(r, "userId")
 
@@ -45,11 +45,26 @@ func (h *InstructorHandler) ListMemberSciNotes(w http.ResponseWriter, r *http.Re
                 return
         }
 
-        items := make([]dto.SciNoteResponse, len(notes))
+        // Collect SciNote IDs for the batch COUNT query.
+        ids := make([]string, len(notes))
         for i := range notes {
-                items[i] = dto.SciNoteResponseFromDomain(&notes[i])
+                ids[i] = notes[i].ID
         }
-        writeJSON(w, http.StatusOK, dto.ListSciNotesResponse{Items: items, Total: len(items)})
+
+        counts, err := h.experiments.CountBySciNoteIDs(r.Context(), ids)
+        if err != nil {
+                mapServiceError(w, err)
+                return
+        }
+
+        items := make([]dto.InstructorSciNoteResponse, len(notes))
+        for i := range notes {
+                items[i] = dto.InstructorSciNoteResponse{
+                        SciNoteResponse:  dto.SciNoteResponseFromDomain(&notes[i]),
+                        ExperimentCount: counts[notes[i].ID], // 0 when key absent
+                }
+        }
+        writeJSON(w, http.StatusOK, dto.ListInstructorSciNotesResponse{Items: items, Total: len(items)})
 }
 
 // GetMemberExperiment handles GET /api/instructor/members/:userId/experiments/:experimentId

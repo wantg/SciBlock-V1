@@ -164,3 +164,10 @@ func (s *ExperimentService) Restore(ctx context.Context, id, callerUserID string
         }
         return s.Get(ctx, id, callerUserID)
 }
+
+// CountBySciNoteIDs returns a map[sciNoteID]count of non-deleted experiment records
+// for the supplied SciNote IDs.  No ownership check is performed — callers (e.g.
+// the instructor handler) are responsible for verifying access before calling this.
+func (s *ExperimentService) CountBySciNoteIDs(ctx context.Context, ids []string) (map[string]int, error) {
+        return s.repo.CountBySciNoteIDs(ctx, ids)
+}
