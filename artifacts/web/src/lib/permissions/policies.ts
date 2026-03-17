@@ -153,10 +153,10 @@ const POLICIES: PolicyMap = {
   'team.invite': {
     create: instructorOnly,
   },
-  // 后端限制：PATCH /members/:id 仅导师可编辑
+  // 方案 B：本人或导师
   'team.profile': {
     view: canViewDefault,
-    edit: instructorOnly,  // 仅导师可编辑
+    edit: ownerOrInstructor,  // 本人或导师可编辑
     manage: instructorOnly,
   },
   'team.status': {
@@ -164,12 +164,12 @@ const POLICIES: PolicyMap = {
     edit: instructorOnly,  // 目前只有导师可以修改状态
     manage: instructorOnly,
   },
-  // 后端限制：POST/DELETE /members/:id/papers 仅导师可操作
+  // 方案 B：本人或导师
   'team.papers': {
     view: canViewDefault,
-    create: instructorOnly,  // 仅导师可添加
-    edit: instructorOnly,    // 仅导师可编辑
-    delete: instructorOnly,  // 仅导师可删除
+    create: ownerOrInstructor,  // 本人或导师可添加
+    edit: ownerOrInstructor,    // 本人或导师可编辑
+    delete: ownerOrInstructor,  // 本人或导师可删除
     manage: instructorOnly,
   },
   // 后端限制：
@@ -209,7 +209,7 @@ const POLICIES: PolicyMap = {
   'report.comment': {
     create: instructorOnly,  // 仅导师可评论
     edit: ownerOnly,         // 只能编辑自己的评论
-    delete: ownerOrInstructor,
+    delete: ownerOrInstructor,  // 本人或导师可删除
   },
 
   // ==========================================================================
