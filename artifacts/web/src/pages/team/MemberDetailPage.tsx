@@ -29,10 +29,11 @@ import { useState } from "react";
 import { useLocation, useParams } from "wouter";
 import {
   BookOpen, FileText, FlaskConical, ScrollText,
-  GraduationCap, ChevronLeft,
+  GraduationCap, ChevronLeft, Lock,
 } from "lucide-react";
 import { useStudentDetail }              from "../../hooks/team/useStudentDetail";
 import { useMemberSciNotes }             from "../../hooks/team/useMemberSciNotes";
+import { useCurrentUser }                from "../../contexts/UserContext";
 import { ProfileCard }                   from "./detail/ProfileCard";
 import { SectionHeading }                from "../../components/team/SectionHeading";
 import BasicInfoCard                     from "./detail/BasicInfoCard";
@@ -46,13 +47,17 @@ export default function MemberDetailPage() {
   const { id }       = useParams<{ id: string }>();
   const [, navigate] = useLocation();
 
+  const { currentUser } = useCurrentUser();
+  const isInstructor = currentUser?.role === "instructor";
+
   const { student, loading, error, setStudent } = useStudentDetail(id ?? "");
 
-  // Member's own SciNotes — correct data semantics.
-  // student.userId is the auth user ID that matches scinotes.user_id in Go API.
-  // Null-safe: useMemberSciNotes skips the fetch when userId is null/empty.
+  // Only fetch member's SciNotes when the current user is an instructor.
+  // Passing null skips the request entirely — useMemberSciNotes has a null guard.
   const memberUserId = student?.userId ?? null;
-  const { notes, loading: notesLoading, error: notesError } = useMemberSciNotes(memberUserId);
+  const { notes, loading: notesLoading, error: notesError } = useMemberSciNotes(
+    isInstructor ? memberUserId : null,
+  );
 
   const [paperCount,      setPaperCount]      = useState(0);
   const [reportCount,     setReportCount]      = useState(0);
@@ -119,14 +124,25 @@ export default function MemberDetailPage() {
       </section>
 
       <section>
-        <SectionHeading icon={<FlaskConical size={12} />} title="实验记录" count={notes.length} />
-        <ExperimentRecordsCard
-          notes={notes}
-          loading={notesLoading}
-          error={notesError}
-          onSelectSciNote={handleSelectSciNote}
-          selectedSciNoteId={selectedSciNote?.id ?? null}
+        <SectionHeading
+          icon={<FlaskConical size={12} />}
+          title="实验记录"
+          count={isInstructor ? notes.length : undefined}
         />
+        {isInstructor ? (
+          <ExperimentRecordsCard
+            notes={notes}
+            loading={notesLoading}
+            error={notesError}
+            onSelectSciNote={handleSelectSciNote}
+            selectedSciNoteId={selectedSciNote?.id ?? null}
+          />
+        ) : (
+          <div className="flex items-center gap-2 px-3 py-3 rounded-lg bg-gray-50 border border-dashed border-gray-200 text-gray-400">
+            <Lock size={13} className="flex-shrink-0" />
+            <span className="text-xs">仅导师可查看成员实验记录</span>
+          </div>
+        )}
       </section>
 
       <section>

@@ -19,9 +19,10 @@
  */
 
 import { useParams, useLocation } from "wouter";
-import { ChevronLeft, GraduationCap, FlaskConical } from "lucide-react";
+import { ChevronLeft, GraduationCap, FlaskConical, Lock } from "lucide-react";
 import { useStudentDetail }       from "@/hooks/team/useStudentDetail";
 import { useMemberExperiment }    from "@/hooks/team/useMemberExperiment";
+import { useCurrentUser }         from "@/contexts/UserContext";
 import {
   STATUS_DOT_CLASS,
   STATUS_TEXT_CLASS,
@@ -370,13 +371,34 @@ export default function MemberExperimentDetailPage() {
   const memberId     = params.memberId     ?? "";
   const experimentId = params.experimentId ?? "";
 
+  // Role check — all hooks must be called before any conditional return.
+  const { currentUser } = useCurrentUser();
+  const isInstructor = currentUser?.role === "instructor";
+
   const { student, loading: studentLoading } = useStudentDetail(memberId);
   const memberUserId = student?.userId ?? null;
 
+  // Pass null when not instructor so the hook skips the request entirely.
   const { record, loading: recordLoading, error } = useMemberExperiment(
-    memberUserId,
+    isInstructor ? memberUserId : null,
     experimentId,
   );
+
+  // ── Permission guard (after all hooks) ───────────────
+  if (!isInstructor) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
+        <Lock size={32} className="text-gray-200" />
+        <p className="text-sm font-medium text-gray-500">仅导师可查看成员实验记录</p>
+        <button
+          onClick={() => navigate(`/home/members/${memberId}`)}
+          className="text-xs text-black font-medium underline underline-offset-2"
+        >
+          返回成员详情
+        </button>
+      </div>
+    );
+  }
 
   const loading = studentLoading || recordLoading;
 
