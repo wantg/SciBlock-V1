@@ -307,9 +307,22 @@ export function WorkbenchProvider({
         // Existing experiments — replace state with API data.
         const apiRecords = res.items.map(apiResponseToRecord);
         setRecords(apiRecords);
-        setCurrentRecordId((prev) =>
-          apiRecords.some((r) => r.id === prev) ? prev : apiRecords[0].id,
-        );
+        setCurrentRecordId((prev) => {
+          // Priority 1: initialRecordId from ?experimentId query param — applies to
+          // both first-visit and returning-visit paths as long as the target exists
+          // in the server-authoritative record list.
+          if (initialRecordId && apiRecords.some((r) => r.id === initialRecordId)) {
+            return initialRecordId;
+          }
+          // Priority 2: keep current selection if it is still valid after API replace.
+          // Covers returning-visit where user had already selected a different record.
+          if (apiRecords.some((r) => r.id === prev)) {
+            return prev;
+          }
+          // Priority 3: fall back to the first record (seed replaced by real data,
+          // or initialRecordId not found in server result).
+          return apiRecords[0].id;
+        });
       })
       .catch(() => {
         // API unavailable — silently keep sessionStorage cache
