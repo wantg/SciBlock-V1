@@ -8,7 +8,7 @@
  *
  * Migration path to real backend:
  *   1. Replace the `setTimeout` block with `fetch("/api/reports/generate", {...})`
- *   2. Keep the function signature identical — callers (WorkbenchContext) need
+ *   2. Keep the function signature identical — callers (useExperimentReport hook) need
  *      no changes.
  */
 

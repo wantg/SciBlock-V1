@@ -27,8 +27,14 @@ interface ExperimentApiResponse {
   updatedAt: string;
 }
 
-export interface ListExperimentsResponse {
+interface ListExperimentsResponse {
   items: ExperimentApiResponse[];
+  total: number;
+}
+
+/** Domain-typed response returned by listExperiments. Wire types do not escape this module. */
+export interface ListExperimentsResult {
+  items: ExperimentRecord[];
   total: number;
 }
 
@@ -69,6 +75,7 @@ export function apiResponseToRecord(api: ExperimentApiResponse): ExperimentRecor
     currentModules: api.currentModules ?? [],
     editorContent: api.editorContent ?? "",
     createdAt: api.createdAt,
+    updatedAt: api.updatedAt,
     reportHtml: api.reportHtml ?? undefined,
   };
 }
@@ -80,11 +87,12 @@ export function apiResponseToRecord(api: ExperimentApiResponse): ExperimentRecor
 export async function listExperiments(
   sciNoteId: string,
   opts?: { deletedOnly?: boolean },
-): Promise<ListExperimentsResponse> {
+): Promise<ListExperimentsResult> {
   const params = opts?.deletedOnly ? "?deleted=true" : "";
-  return apiFetch<ListExperimentsResponse>(
+  const raw = await apiFetch<ListExperimentsResponse>(
     `/scinotes/${sciNoteId}/experiments${params}`,
   );
+  return { items: raw.items.map(apiResponseToRecord), total: raw.total };
 }
 
 export async function createExperiment(

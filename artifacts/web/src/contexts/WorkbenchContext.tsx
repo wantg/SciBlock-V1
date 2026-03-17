@@ -42,7 +42,6 @@ import {
   updateExperiment,
   deleteExperiment,
   restoreExperiment,
-  apiResponseToRecord,
 } from "@/api/experiments";
 
 // ---------------------------------------------------------------------------
@@ -308,7 +307,8 @@ export function WorkbenchProvider({
         }
 
         // Existing experiments — replace state with API data.
-        const apiRecords = res.items.map(apiResponseToRecord);
+        // listExperiments already converts wire types; items are ExperimentRecord.
+        const apiRecords = res.items;
         setRecords(apiRecords);
         setCurrentRecordId((prev) => {
           // Priority 1: initialRecordId from ?experimentId query param — applies to

@@ -4,8 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useTrash } from "@/contexts/TrashContext";
 import { useSciNoteStore } from "@/contexts/SciNoteStoreContext";
 import { useToast } from "@/hooks/use-toast";
-import { listExperiments, restoreExperiment, apiResponseToRecord } from "@/api/experiments";
-import type { ExperimentStatus } from "@/types/workbench";
+import { listExperiments, restoreExperiment } from "@/api/experiments";
 import type { DeletedRecord } from "@/types/trash";
 import { TrashRecordRow } from "./TrashRecordRow";
 
@@ -39,12 +38,12 @@ export function TrashPage() {
         notes.map((note) =>
           listExperiments(note.id, { deletedOnly: true })
             .then((res) =>
-              res.items.map((apiItem): DeletedRecord => ({
-                record: apiResponseToRecord(apiItem),
+              res.items.map((record): DeletedRecord => ({
+                record,
                 sciNoteId: note.id,
                 sciNoteTitle: note.title,
-                deletedAt: apiItem.updatedAt,
-                statusAtDeletion: (apiItem.experimentStatus as ExperimentStatus) || "探索中",
+                deletedAt: record.updatedAt ?? record.createdAt,
+                statusAtDeletion: record.experimentStatus,
               })),
             )
             .catch(() => [] as DeletedRecord[]),

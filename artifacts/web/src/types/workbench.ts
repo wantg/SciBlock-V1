@@ -66,6 +66,8 @@ export interface ExperimentRecord {
   /** TipTap HTML content */
   editorContent: string;
   createdAt: string;
+  /** Server-assigned last-modification timestamp. Used e.g. for deletedAt in trash. */
+  updatedAt?: string;
   /**
    * AI-generated experiment report HTML.
    * Persisted to sessionStorage alongside the rest of the record.
