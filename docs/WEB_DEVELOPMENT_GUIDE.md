@@ -12,10 +12,11 @@
 6. [Nginx 代理配置](#6-nginx-代理配置)
 7. [Docker 配置](#7-docker-配置)
 8. [API 客户端](#8-api-客户端)
-9. [样式系统](#9-样式系统)
-10. [路由与页面](#10-路由与页面)
-11. [构建与部署](#11-构建与部署)
-12. [常见问题与解决方案](#12-常见问题与解决方案)
+9. [权限管理系统](#9-权限管理系统)
+10. [样式系统](#10-样式系统)
+11. [路由与页面](#11-路由与页面)
+12. [构建与部署](#12-构建与部署)
+13. [常见问题与解决方案](#13-常见问题与解决方案)
 
 ---
 
@@ -735,7 +736,167 @@ export function useLogin() {
 
 ---
 
-## 9. 样式系统
+## 9. 权限管理系统
+
+### 9.1 概述
+
+项目采用集中式权限管理系统，所有权限判断统一在 `@/lib/permissions` 中管理。
+
+**设计原则：**
+- 权限与角色解耦 - 不直接判断 `role`，而是判断权限点
+- 策略集中管理 - 所有权限逻辑在 `policies.ts` 中维护
+- 分层设计 - 导航权限、页面权限、功能权限、数据权限
+- 易于扩展 - 新增权限只需添加类型和策略
+
+### 9.2 文件结构
+
+```
+src/
+├── types/permissions.ts          # 权限类型定义
+├── lib/permissions/
+│   ├── index.ts                  # 统一导出
+│   ├── policies.ts               # 策略集中管理（唯一修改点）
+│   └── usePermissions.ts         # React Hooks
+└── config/navigation.ts          # 导航权限配置
+```
+
+### 9.3 使用方式
+
+#### 1. 全局权限（导航、通用功能）
+
+```tsx
+import { useGlobalPermissions } from "@/lib/permissions";
+
+function MembersPage() {
+  const { canInviteMember, canSeeTeamReportsNav } = useGlobalPermissions();
+  
+  return (
+    <div>
+      {canInviteMember && <InviteButton />}
+    </div>
+  );
+}
+```
+
+#### 2. 学生详情页权限
+
+```tsx
+import { useStudentPermissions } from "@/lib/permissions";
+
+function MemberDetailPage({ student }) {
+  const perms = useStudentPermissions(student.userId);
+  
+  return (
+    <>
+      <BasicInfoCard canEdit={perms.canEditProfile} />
+      <PapersCard 
+        canAdd={perms.canAddPaper} 
+        canEdit={perms.canEditPaper}
+        canDelete={perms.canDeletePaper}
+      />
+      <WeeklyReportsCard canAdd={perms.canAddReport} />
+    </>
+  );
+}
+```
+
+#### 3. 通用权限检查
+
+```tsx
+import { useHasPermission } from "@/lib/permissions";
+
+function MyComponent({ student }) {
+  const canEdit = useHasPermission('team.profile', 'edit', studentUserId);
+  return <button disabled={!canEdit}>编辑</button>;
+}
+```
+
+### 9.4 权限策略
+
+策略定义在 `src/lib/permissions/policies.ts` 中：
+
+```typescript
+// 学生基本信息
+'session.profile': {
+  view: canViewDefault,      // 所有人可查看
+  edit: ownerOrInstructor,   // 本人或导师可编辑
+  manage: instructorOnly,    // 仅导师可管理
+},
+
+// 学生状态
+'session.status': {
+  view: canViewDefault,
+  edit: instructorOnly,      // 仅导师可修改状态
+},
+
+// 论文
+'session.papers': {
+  view: canViewDefault,
+  create: ownerOrInstructor,
+  edit: ownerOrInstructor,
+  delete: ownerOrInstructor,
+},
+
+// 导航
+'nav.team_reports': {
+  view: instructorOnly,      // 仅导师可见团队周报导航
+},
+```
+
+### 9.5 预定义策略
+
+| 策略 | 说明 | 使用场景 |
+|------|------|----------|
+| `instructorOnly` | 仅导师/管理员 | 邀请成员、修改状态 |
+| `studentOnly` | 仅学生 | 学生专属功能 |
+| `ownerOnly` | 仅资源所有者 | 个人设置 |
+| `ownerOrInstructor` | 本人或导师 | 编辑基本信息、论文 |
+| `canViewDefault` | 所有已登录用户 | 查看团队成员 |
+| `allowAll` | 任何人（包括未登录） | 公开页面 |
+
+### 9.6 导航权限配置
+
+在 `src/config/navigation.ts` 中配置导航权限：
+
+```typescript
+{
+  label: "周报管理",
+  href: "/home/reports",
+  Icon: ClipboardList,
+  // 使用权限系统
+  permission: { resource: 'nav.team_reports', action: 'view' },
+}
+```
+
+### 9.7 添加新权限
+
+1. **添加资源类型**（`types/permissions.ts`）：
+
+```typescript
+export type ExperimentResource =
+  | 'experiment.view'
+  | 'experiment.create'
+  | 'experiment.edit';
+```
+
+2. **添加策略**（`lib/permissions/policies.ts`）：
+
+```typescript
+'experiment.edit': {
+  view: canViewDefault,
+  edit: ownerOrInstructor,
+},
+```
+
+3. **使用权限**：
+
+```tsx
+const canEdit = useHasPermission('experiment.edit', 'edit', ownerId);
+```
+
+---
+
+## 10. 样式系统
 
 ### 9.1 Tailwind CSS v4 配置
 
@@ -822,7 +983,7 @@ npx shadcn add dialog
 
 ---
 
-## 10. 路由与页面
+## 11. 路由与页面
 
 ### 10.1 路由配置
 
@@ -924,7 +1085,7 @@ function MyComponent() {
 
 ---
 
-## 11. 构建与部署
+## 12. 构建与部署
 
 ### 11.1 构建命令
 
@@ -979,7 +1140,7 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ---
 
-## 12. 常见问题与解决方案
+## 13. 常见问题与解决方案
 
 ### 12.1 端口冲突
 
