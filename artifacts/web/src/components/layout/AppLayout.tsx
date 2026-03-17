@@ -1,5 +1,5 @@
 import React from "react";
-import { TopBar } from "./TopBar";
+import { TopBar, type BreadcrumbItem } from "./TopBar";
 
 interface Props {
   title: string;
@@ -9,16 +9,18 @@ interface Props {
    * content area. Use for full-bleed layouts like the experiment workbench.
    */
   noPadding?: boolean;
+  /** 可选的面包屑导航 */
+  breadcrumb?: BreadcrumbItem[];
 }
 
 /**
  * Standard page layout: top bar + scrollable content area.
  * Must be used inside AuthenticatedLayout (which supplies the sidebar).
  */
-export function AppLayout({ title, children, noPadding = false }: Props) {
+export function AppLayout({ title, children, noPadding = false, breadcrumb }: Props) {
   return (
     <>
-      <TopBar title={title} />
+      <TopBar title={title} breadcrumb={breadcrumb} />
       <main
         className={
           noPadding

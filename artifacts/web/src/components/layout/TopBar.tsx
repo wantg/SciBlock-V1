@@ -3,14 +3,43 @@ import { Bell } from "lucide-react";
 import { TimeDisplay } from "../ui/TimeDisplay";
 import { IdentityBadge } from "./IdentityBadge";
 
-interface Props {
-  title: string;
+export interface BreadcrumbItem {
+  label: string;
+  onClick?: () => void;
 }
 
-export function TopBar({ title }: Props) {
+interface Props {
+  title: string;
+  /** 可选的面包屑导航，提供时优先显示 */
+  breadcrumb?: BreadcrumbItem[];
+}
+
+export function TopBar({ title, breadcrumb }: Props) {
   return (
     <header className="h-12 flex items-center justify-between px-6 border-b border-gray-100 bg-white flex-shrink-0">
-      <span className="text-sm font-medium text-gray-700">{title}</span>
+      {breadcrumb ? (
+        <nav className="flex items-center gap-1 text-sm">
+          {breadcrumb.map((item, index) => (
+            <React.Fragment key={index}>
+              {index > 0 && (
+                <span className="text-gray-300 mx-2 text-xs">/</span>
+              )}
+              {item.onClick ? (
+                <button
+                  onClick={item.onClick}
+                  className="text-gray-500 hover:text-gray-900 transition-colors"
+                >
+                  {item.label}
+                </button>
+              ) : (
+                <span className="font-medium text-gray-900">{item.label}</span>
+              )}
+            </React.Fragment>
+          ))}
+        </nav>
+      ) : (
+        <span className="text-sm font-medium text-gray-700">{title}</span>
+      )}
 
       <div className="flex items-center gap-4">
         <TimeDisplay />
