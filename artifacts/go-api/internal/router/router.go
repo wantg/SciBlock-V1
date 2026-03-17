@@ -95,6 +95,7 @@ func New(
 
                         r.Get("/instructor/members/{userId}/scinotes", instructorH.ListMemberSciNotes)
                         r.Get("/instructor/members/{userId}/scinotes/{sciNoteId}/experiments", instructorH.ListMemberExperiments)
+                        r.Get("/instructor/members/{userId}/experiments/{experimentId}", instructorH.GetMemberExperiment)
                 })
         })
 

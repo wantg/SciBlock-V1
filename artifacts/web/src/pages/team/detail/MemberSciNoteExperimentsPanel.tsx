@@ -83,10 +83,12 @@ function ExperimentRow({ record, onClick }: ExperimentRowProps) {
 interface Props {
   sciNote:      SciNote;
   memberUserId: string | null;
+  /** student.id (Express profile ID) — used to build the member-scoped detail URL. */
+  memberId:     string;
   onClose:      () => void;
 }
 
-export function MemberSciNoteExperimentsPanel({ sciNote, memberUserId, onClose }: Props) {
+export function MemberSciNoteExperimentsPanel({ sciNote, memberUserId, memberId, onClose }: Props) {
   const [, navigate] = useLocation();
   const { experiments, loading, error } = useMemberSciNoteExperiments(
     memberUserId,
@@ -100,7 +102,7 @@ export function MemberSciNoteExperimentsPanel({ sciNote, memberUserId, onClose }
 
   function handleOpenRecord(record: ExperimentRecord) {
     navigate(
-      `/personal/experiment/${record.sciNoteId}/workbench?experimentId=${record.id}`,
+      `/home/members/${memberId}/experiment/${record.sciNoteId}/${record.id}`,
     );
   }
 

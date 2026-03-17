@@ -95,3 +95,24 @@ export async function fetchMemberExperiments(
   );
   return (res.items ?? []).map(apiResponseToRecord);
 }
+
+/**
+ * Fetches a single experiment record owned by a student.
+ *
+ * Backend performs a two-step ownership check:
+ *   1. Load experiment by experimentId
+ *   2. Load parent scinote and verify scinote.user_id == userId
+ * A mismatched userId returns 403; a nonexistent experimentId returns 404.
+ *
+ * @param userId        The student's auth user ID (student.userId, NOT student.id).
+ * @param experimentId  The experiment record ID.
+ */
+export async function fetchMemberExperiment(
+  userId:       string,
+  experimentId: string,
+): Promise<ExperimentRecord> {
+  const res = await apiFetch<ExperimentApiResponse>(
+    `/instructor/members/${encodeURIComponent(userId)}/experiments/${encodeURIComponent(experimentId)}`,
+  );
+  return apiResponseToRecord(res);
+}

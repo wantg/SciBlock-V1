@@ -178,6 +178,7 @@ export default function MemberDetailPage() {
             <MemberSciNoteExperimentsPanel
               sciNote={selectedSciNote}
               memberUserId={memberUserId}
+              memberId={id ?? ""}
               onClose={() => setSelectedSciNote(null)}
             />
           </div>

@@ -1,11 +1,11 @@
 package handler
 
 import (
-	"net/http"
+        "net/http"
 
-	"github.com/go-chi/chi/v5"
-	"sciblock/go-api/internal/dto"
-	"sciblock/go-api/internal/service"
+        "github.com/go-chi/chi/v5"
+        "sciblock/go-api/internal/dto"
+        "sciblock/go-api/internal/service"
 )
 
 // InstructorHandler handles read-only, instructor-scoped data access.
@@ -19,16 +19,16 @@ import (
 // NOT the student profile ID (students.id).  The frontend must supply
 // student.userId, not student.id.
 type InstructorHandler struct {
-	sciNotes    *service.SciNoteService
-	experiments *service.ExperimentService
+        sciNotes    *service.SciNoteService
+        experiments *service.ExperimentService
 }
 
 // NewInstructorHandler creates an InstructorHandler.
 func NewInstructorHandler(
-	sciNotes *service.SciNoteService,
-	experiments *service.ExperimentService,
+        sciNotes *service.SciNoteService,
+        experiments *service.ExperimentService,
 ) *InstructorHandler {
-	return &InstructorHandler{sciNotes: sciNotes, experiments: experiments}
+        return &InstructorHandler{sciNotes: sciNotes, experiments: experiments}
 }
 
 // ListMemberSciNotes handles GET /api/instructor/members/:userId/scinotes
@@ -37,19 +37,40 @@ func NewInstructorHandler(
 // Reuses SciNoteService.List — passing targetUserID in place of callerUserID
 // is safe here because the instructor middleware already verified authority.
 func (h *InstructorHandler) ListMemberSciNotes(w http.ResponseWriter, r *http.Request) {
-	targetUserID := chi.URLParam(r, "userId")
+        targetUserID := chi.URLParam(r, "userId")
 
-	notes, err := h.sciNotes.List(r.Context(), targetUserID)
-	if err != nil {
-		mapServiceError(w, err)
-		return
-	}
+        notes, err := h.sciNotes.List(r.Context(), targetUserID)
+        if err != nil {
+                mapServiceError(w, err)
+                return
+        }
 
-	items := make([]dto.SciNoteResponse, len(notes))
-	for i := range notes {
-		items[i] = dto.SciNoteResponseFromDomain(&notes[i])
-	}
-	writeJSON(w, http.StatusOK, dto.ListSciNotesResponse{Items: items, Total: len(items)})
+        items := make([]dto.SciNoteResponse, len(notes))
+        for i := range notes {
+                items[i] = dto.SciNoteResponseFromDomain(&notes[i])
+        }
+        writeJSON(w, http.StatusOK, dto.ListSciNotesResponse{Items: items, Total: len(items)})
+}
+
+// GetMemberExperiment handles GET /api/instructor/members/:userId/experiments/:experimentId
+//
+// Returns a single ExperimentRecord owned by targetUserID.
+// Ownership is verified inside ExperimentService.Get:
+//   experiment → parent scinote → scinote.user_id == targetUserID
+// This means a fabricated experimentId belonging to a different user will
+// receive 404/403 even though the instructor role has already been confirmed
+// by the middleware.  Backend never trusts the URL alone.
+func (h *InstructorHandler) GetMemberExperiment(w http.ResponseWriter, r *http.Request) {
+        targetUserID := chi.URLParam(r, "userId")
+        experimentID := chi.URLParam(r, "experimentId")
+
+        rec, err := h.experiments.Get(r.Context(), experimentID, targetUserID)
+        if err != nil {
+                mapServiceError(w, err)
+                return
+        }
+
+        writeJSON(w, http.StatusOK, dto.ExperimentResponseFromDomain(rec))
 }
 
 // ListMemberExperiments handles GET /api/instructor/members/:userId/scinotes/:sciNoteId/experiments
@@ -58,18 +79,18 @@ func (h *InstructorHandler) ListMemberSciNotes(w http.ResponseWriter, r *http.Re
 // Reuses ExperimentService.List — passing targetUserID verifies SciNote ownership
 // (note.UserID == targetUserID) before returning records.
 func (h *InstructorHandler) ListMemberExperiments(w http.ResponseWriter, r *http.Request) {
-	targetUserID := chi.URLParam(r, "userId")
-	sciNoteID    := chi.URLParam(r, "sciNoteId")
+        targetUserID := chi.URLParam(r, "userId")
+        sciNoteID    := chi.URLParam(r, "sciNoteId")
 
-	records, err := h.experiments.List(r.Context(), sciNoteID, targetUserID, false)
-	if err != nil {
-		mapServiceError(w, err)
-		return
-	}
+        records, err := h.experiments.List(r.Context(), sciNoteID, targetUserID, false)
+        if err != nil {
+                mapServiceError(w, err)
+                return
+        }
 
-	items := make([]dto.ExperimentResponse, len(records))
-	for i := range records {
-		items[i] = dto.ExperimentResponseFromDomain(&records[i])
-	}
-	writeJSON(w, http.StatusOK, dto.ListExperimentsResponse{Items: items, Total: len(items)})
+        items := make([]dto.ExperimentResponse, len(records))
+        for i := range records {
+                items[i] = dto.ExperimentResponseFromDomain(&records[i])
+        }
+        writeJSON(w, http.StatusOK, dto.ListExperimentsResponse{Items: items, Total: len(items)})
 }

@@ -1,0 +1,121 @@
+现在按方案 A 开发“成员视角的实验记录只读详情页”。
+
+目标
+在成员详情页里：
+- 点击某个项目，右侧显示该项目的实验记录列表
+- 点击某条实验记录后
+- 不进入 /personal/... workbench
+- 而是进入一个新的“成员视角只读实验详情页”
+
+这个详情页必须是：
+- 只读
+- 成员视角
+- 不污染现有 WorkbenchContext
+- 不假装进入 instructor 自己的个人工作台
+
+一、路由目标
+请新增成员实验详情页路由，采用成员域语义，而不是个人域语义。
+
+推荐路由：
+/home/members/:memberId/experiment/:sciNoteId/:experimentId
+
+如果你基于当前路由风格认为还有更合适的轻微变体，可以说明后采用，但必须满足：
+- 明确属于 /home/members/ 路由树
+- 明确不是 /personal/
+- 能唯一定位某成员下某项目中的某条实验记录
+
+二、后端实现
+请新增 instructor-only 单条实验只读接口：
+
+GET /api/instructor/members/:userId/experiments/:experimentId
+
+要求：
+1. 仅 instructor 可访问
+2. 必须做二次所有权校验：
+   - experimentId 对应的 experiment
+   - 其 sci_note_id 对应的 scinote
+   - scinote.user_id 必须等于目标 userId
+3. 不能只靠前端传对参数
+4. 返回结构尽量复用现有单条 Experiment DTO，不要额外发明一套相似 DTO
+
+请在交付时说明：
+- 新增了哪些后端文件
+- 修改了哪些后端文件
+- 这个接口的真实路由
+- 具体做了哪些权限与归属校验
+
+三、前端实现
+请新增成员实验详情页的数据链路，但不要复用 WorkbenchContext。
+
+要求新增：
+1. API adapter
+   - 在现有 member 相关 API 文件中增加 fetchMemberExperiment(userId, experimentId)
+   - 仍然遵守 adapter 规范，页面层不直接接 raw API 类型
+
+2. hook
+   - useMemberExperiment(userId, experimentId)
+
+3. 页面
+   - MemberExperimentDetailPage.tsx
+
+页面职责：
+- 顶部：面包屑（成员 → 项目 → 实验）
+- 标题区：实验标题、状态、实验码、创建/更新时间
+- 主体：只读展示实验内容
+- 可以复用已有纯展示组件，例如 ModuleBodyRenderer
+- 如需展示 editorContent / reportHtml，也必须是只读渲染
+
+注意：
+- 不要引入编辑态
+- 不要出现保存、删除、更新等按钮
+- 不要接入 WorkbenchProvider
+- 不要依赖 useSciNoteStore / useWorkbench
+
+四、现有页面联动
+请把 MemberSciNoteExperimentsPanel 里点击实验记录的行为改为：
+
+从：
+- 跳 /personal/experiment/:sciNoteId/workbench?experimentId=:id
+
+改为：
+- 跳到新的成员实验详情页路由
+
+所需参数：
+- memberId
+- sciNoteId
+- experimentId
+
+如果当前 MemberSciNoteExperimentsPanel 没有 memberId，请通过 props 正确传入，不要通过全局状态猜。
+
+五、展示要求
+详情页至少展示这些信息：
+1. 实验标题
+2. 状态
+3. 创建时间 / 更新时间
+4. 实验码（如果当前 DTO 有）
+5. 模块内容（只读）
+6. editorContent / reportHtml（如果现有数据结构里有且当前页面适合展示）
+
+如果某部分当前真实数据为空：
+- 做空态
+- 不要伪造内容
+
+六、工程要求
+必须遵守：
+1. 不修改 WorkbenchContext
+2. 不给现有 workbench 强行加 readOnly 模式
+3. 不把成员详情逻辑混入个人实验页面
+4. 路由语义必须清楚地区分 members 和 personal
+5. API adapter 规则必须继续遵守
+6. 不要为了省事把详情塞回 400px 侧栏
+
+七、交付回复格式
+完成后请按下面格式回复：
+1. 新增了哪些文件
+2. 修改了哪些文件
+3. 新增的后端接口是什么，如何校验权限和归属
+4. 新增的前端路由是什么
+5. 成员详情页 → 项目实验列表 → 成员实验详情页 的完整跳转链路是什么
+6. 详情页复用了哪些现有只读组件
+7. 这次是否完全避免了 WorkbenchContext 污染
+8. 还有哪些后续优化项这次没做
