@@ -22,6 +22,7 @@ import { clearSession, getStoredToken } from "../api/client";
 import { me } from "../api/auth";
 
 const STORAGE_KEY = "sciblock:currentUser";
+const TOKEN_STORAGE_KEY = "sciblock:token";
 
 function readStoredUser(): User | null {
   try {
@@ -100,6 +101,51 @@ export function UserProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         // Handled upstream: 401 → redirect, others → keep state.
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Cross-iframe / cross-tab session sync.
+  //
+  // The `storage` event fires in every same-origin context *other than* the
+  // one that wrote the change.  This is exactly what we need: when the user
+  // logs in or out in another iframe/tab, every other frame detects the new
+  // token and re-syncs its React state so that:
+  //   - UI role   matches the new JWT role
+  //   - API calls carry the correct token
+  //
+  // We watch both TOKEN_STORAGE_KEY and STORAGE_KEY so that either change
+  // triggers a resync.
+  //
+  // Sync rules:
+  //   - Token removed → treat as logged out; clear React state immediately.
+  //   - Token present → call /api/auth/me to re-derive user from JWT.
+  //     This is the authoritative source; we do not trust the raw localStorage
+  //     user object in case it is stale.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    function handleStorage(event: StorageEvent): void {
+      if (event.key !== TOKEN_STORAGE_KEY && event.key !== STORAGE_KEY) return;
+
+      const currentToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+      if (!currentToken) {
+        setCurrentUserState(null);
+        return;
+      }
+
+      me()
+        .then((user) => {
+          writeStoredUser(user);
+          setCurrentUserState(user);
+        })
+        .catch(() => {
+          // 401 → apiFetch clears session + redirects; nothing more needed.
+          // Other transient errors → leave current state intact.
+        });
+    }
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
