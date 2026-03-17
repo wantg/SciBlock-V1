@@ -40,18 +40,15 @@ function NoExperimentsState() {
 // ---------------------------------------------------------------------------
 
 /**
- * WorkbenchAppLayout — reads current record title from WorkbenchContext
- * and forwards it to AppLayout's title prop in real time.
- * Shows an empty state when the API confirms no experiments exist yet.
+ * WorkbenchAppLayout — renders AppLayout with no TopBar title (the record
+ * title is already shown inside the editor; the project context is in
+ * ExperimentInfoBar).  Shows an empty state when no experiments exist yet.
  */
 function WorkbenchAppLayout() {
-  const { currentRecord, records } = useWorkbench();
-  const pageTitle = records.length > 0
-    ? (currentRecord.title.trim() || "实验记录")
-    : "实验记录";
+  const { records } = useWorkbench();
 
   return (
-    <AppLayout title={pageTitle} noPadding>
+    <AppLayout title="" noPadding>
       {records.length === 0 ? <NoExperimentsState /> : <WorkbenchLayout />}
     </AppLayout>
   );
