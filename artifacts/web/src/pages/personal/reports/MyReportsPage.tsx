@@ -170,6 +170,7 @@ export function MyReportsPage() {
             userId={userId}
             studentName={studentName}
             onDelete={handleDelete}
+            onSubmit={submit}
           />
         )}
       </div>

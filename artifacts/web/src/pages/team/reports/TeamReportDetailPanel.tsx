@@ -1,11 +1,12 @@
 import React, { useState } from "react";
+import { Sparkles } from "lucide-react";
 import { ReportStatusTag } from "@/components/reports/ReportStatusTag";
 import { ReportContentView } from "@/components/reports/ReportContentView";
 import { CommentThread } from "@/components/reports/CommentThread";
 import { useCurrentUser } from "@/contexts/UserContext";
 import type { StudentWithReport } from "@/hooks/reports/useTeamReports";
 import type { WeeklyReportStatus, AddWeeklyReportCommentPayload } from "@/types/weeklyReport";
-import { parseReportContent, fmtWeekRange } from "@/types/weeklyReport";
+import { parseReportContent, parseAiContent, fmtWeekRange } from "@/types/weeklyReport";
 
 const STATUS_ACTIONS: Array<{ status: WeeklyReportStatus; label: string; cls: string }> = [
   { status: "under_review",   label: "标记为审阅中", cls: "border-yellow-300 text-yellow-700 hover:bg-yellow-50" },
@@ -85,10 +86,55 @@ export function TeamReportDetailPanel({ selected, weekStart, weekEnd, onChangeSt
           <ReportStatusTag status={report.status} size="md" />
         </div>
 
-        {/* Content */}
-        <div className="bg-white rounded-xl border border-gray-200 px-6 py-5 mb-5">
-          <ReportContentView content={parseReportContent(report)} />
-        </div>
+        {/* Content — handles both manual and AI-generated reports */}
+        {(() => {
+          const aiContent = parseAiContent(report);
+          if (aiContent) {
+            // AI-generated report: show the plain-text summary and key stats
+            // Full section breakdown is not needed here — instructor sees the highlights.
+            return (
+              <div className="bg-white rounded-xl border border-gray-200 px-6 py-5 mb-5">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <Sparkles size={13} className="text-violet-500" />
+                  <span className="text-xs font-medium text-violet-600">自动汇总</span>
+                </div>
+                {aiContent.summary && (
+                  <p className="text-sm text-gray-700 leading-relaxed mb-4">{aiContent.summary}</p>
+                )}
+                {aiContent.statusDistribution && (
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(aiContent.statusDistribution).map(([status, count]) =>
+                      count > 0 ? (
+                        <span
+                          key={status}
+                          className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
+                        >
+                          {status} ×{count}
+                        </span>
+                      ) : null,
+                    )}
+                  </div>
+                )}
+                {aiContent.projectSummary && aiContent.projectSummary.length > 0 && (
+                  <ul className="mt-4 space-y-1.5">
+                    {aiContent.projectSummary.map((p, i) => (
+                      <li key={i} className="text-sm text-gray-700">
+                        <span className="font-medium">{p.project}：</span>
+                        {p.summary}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          }
+          // Manual report
+          return (
+            <div className="bg-white rounded-xl border border-gray-200 px-6 py-5 mb-5">
+              <ReportContentView content={parseReportContent(report)} />
+            </div>
+          );
+        })()}
 
         {/* Review actions */}
         {report.status !== "reviewed" && (

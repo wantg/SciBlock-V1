@@ -17,6 +17,7 @@ import { useLocation } from "wouter";
 import {
   FlaskConical, BarChart2, FolderOpen, ClipboardList,
   TrendingUp, Settings, Link2, Trash2, ChevronDown, ChevronRight,
+  Send, CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import { CommentThread } from "@/components/reports/CommentThread";
 import { ReportStatusTag } from "@/components/reports/ReportStatusTag";
@@ -292,9 +293,122 @@ interface Props {
   userId: string;
   studentName: string;
   onDelete: (id: string) => Promise<void>;
+  /** Called when student clicks "提交周报". Receives only the report id. */
+  onSubmit: (id: string) => Promise<WeeklyReport>;
 }
 
-export function AiReportDetailPanel({ report, userId, studentName, onDelete }: Props) {
+// ---------------------------------------------------------------------------
+// Submit action section
+// ---------------------------------------------------------------------------
+
+/**
+ * SubmitAction — shown between report content and comments.
+ *
+ * Rendering rules (driven by report.status):
+ *  draft           → call-to-action card with "提交周报" button
+ *  needs_revision  → warning card with "重新提交" button
+ *  submitted / under_review / reviewed → "已提交" confirmation banner
+ */
+function SubmitAction({
+  report,
+  onSubmit,
+}: {
+  report: WeeklyReport;
+  onSubmit: (id: string) => Promise<WeeklyReport>;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const canSubmit = report.status === "draft" || report.status === "needs_revision";
+  const alreadySubmitted =
+    report.status === "submitted" ||
+    report.status === "under_review" ||
+    report.status === "reviewed";
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setErrorMsg(null);
+    try {
+      await onSubmit(report.id);
+      // report prop updates from parent after the submit succeeds
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "提交失败，请稍后重试";
+      setErrorMsg(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (alreadySubmitted) {
+    return (
+      <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-green-50 border border-green-200">
+        <CheckCircle2 size={16} className="text-green-600 flex-shrink-0" />
+        <div>
+          <p className="text-sm font-medium text-green-800">已提交给导师</p>
+          {report.submittedAt && (
+            <p className="text-xs text-green-600 mt-0.5">
+              提交时间：{new Date(report.submittedAt).toLocaleString("zh-CN")}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!canSubmit) return null;
+
+  const isRevision = report.status === "needs_revision";
+
+  return (
+    <div
+      className={`rounded-xl border px-5 py-4 ${
+        isRevision
+          ? "bg-red-50 border-red-200"
+          : "bg-gray-50 border-gray-200"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        {isRevision ? (
+          <AlertTriangle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
+        ) : (
+          <Send size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
+        )}
+        <div className="flex-1">
+          <p className={`text-sm font-medium ${isRevision ? "text-red-800" : "text-gray-700"}`}>
+            {isRevision ? "导师要求修改，请修改后重新提交" : "汇总已完成，可以提交给导师了"}
+          </p>
+          {!isRevision && (
+            <p className="text-xs text-gray-500 mt-0.5">
+              提交后导师即可查看这份汇总报告
+            </p>
+          )}
+          {errorMsg && (
+            <p className="text-xs text-red-600 mt-1.5">{errorMsg}</p>
+          )}
+        </div>
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex-shrink-0 ${
+            isRevision
+              ? "bg-red-600 hover:bg-red-700 text-white"
+              : "bg-gray-900 hover:bg-gray-700 text-white"
+          }`}
+        >
+          <Send size={13} />
+          {submitting ? "提交中…" : isRevision ? "重新提交" : "提交周报"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AiReportDetailPanel (main)
+// ---------------------------------------------------------------------------
+
+export function AiReportDetailPanel({ report, userId, studentName, onDelete, onSubmit }: Props) {
   const content: AiReportContent | null = parseAiContent(report);
 
   const dateLabel =
@@ -363,6 +477,13 @@ export function AiReportDetailPanel({ report, userId, studentName, onDelete }: P
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 px-6 py-10 text-center">
             <p className="text-sm text-gray-500">报告内容不可用，请尝试重新生成。</p>
+          </div>
+        )}
+
+        {/* Submit action — only shown for student-owned reports with generated content */}
+        {content && (
+          <div className="mt-3">
+            <SubmitAction report={report} onSubmit={onSubmit} />
           </div>
         )}
 

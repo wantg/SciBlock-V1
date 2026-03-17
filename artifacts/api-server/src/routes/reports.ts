@@ -27,6 +27,8 @@ import {
 import { eq, desc } from "drizzle-orm";
 import { requireInstructor } from "../middleware/requireAuth";
 import { getStudentByUserId } from "../services/student.service";
+import { submitReport } from "../services/report.service";
+import { findSubmittedReportsForTeam } from "../repositories/report.repository";
 
 const router = Router();
 
@@ -365,21 +367,16 @@ router.get("/", async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // GET /reports/team
+//
+// Returns all active students paired with their submitted reports for the
+// given week. Draft reports are intentionally excluded: students control
+// when they share work with their instructor by submitting.
 // ---------------------------------------------------------------------------
 router.get("/team", requireInstructor, async (req, res) => {
   const { weekStart } = req.query as { weekStart?: string };
   try {
     const students = await db.select().from(studentsTable).orderBy(studentsTable.name);
-    const reports = weekStart
-      ? await db
-          .select()
-          .from(weeklyReportsTable)
-          .where(eq(weeklyReportsTable.weekStart, weekStart))
-          .orderBy(desc(weeklyReportsTable.updatedAt))
-      : await db
-          .select()
-          .from(weeklyReportsTable)
-          .orderBy(desc(weeklyReportsTable.weekStart));
+    const reports = await findSubmittedReportsForTeam(weekStart);
     res.json({ students, reports });
   } catch (err) {
     console.error("[reports] GET /team error:", err);
@@ -717,6 +714,66 @@ router.post("/:id/generate", async (req, res) => {
       }
     }
   });
+});
+
+// ---------------------------------------------------------------------------
+// POST /reports/:id/submit
+//
+// Dedicated submit endpoint. Separated from PATCH so that:
+//  - Permission checks are explicit (student-only, own report)
+//  - Content validation runs at the point of submission
+//  - submittedAt is always written atomically with the status change
+//  - The route layer stays thin — all business rules live in report.service.ts
+// ---------------------------------------------------------------------------
+router.post("/:id/submit", async (req, res) => {
+  const role = res.locals.role as string;
+  const id = req.params["id"] as string;
+
+  if (role !== "student") {
+    res.status(403).json({ error: "forbidden", message: "Only students can submit reports" });
+    return;
+  }
+
+  let student;
+  try {
+    student = await getStudentByUserId(res.locals.userId);
+  } catch (err) {
+    console.error("[reports] POST /:id/submit student lookup error:", err);
+    res.status(500).json({ message: "Failed to resolve student profile" });
+    return;
+  }
+
+  if (!student) {
+    res.status(409).json({
+      error: "no_student_binding",
+      message: "Your account is not linked to a student profile.",
+    });
+    return;
+  }
+
+  const result = await submitReport(id, student.id).catch((err) => {
+    console.error("[reports] POST /:id/submit service error:", err);
+    return null;
+  });
+
+  if (result === null) {
+    res.status(500).json({ message: "Failed to submit report" });
+    return;
+  }
+
+  if (!result.ok) {
+    const statusMap: Record<string, number> = {
+      not_found: 404,
+      forbidden: 403,
+      already_submitted: 409,
+      missing_content: 422,
+    };
+    const httpStatus = statusMap[result.error.code] ?? 400;
+    res.status(httpStatus).json({ error: result.error.code, message: result.error.message });
+    return;
+  }
+
+  res.json(result.report);
 });
 
 // ---------------------------------------------------------------------------

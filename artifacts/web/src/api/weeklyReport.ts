@@ -110,6 +110,22 @@ export function createReport(payload: CreateWeeklyReportPayload): Promise<Weekly
   });
 }
 
+/**
+ * Submits a report via the dedicated submit endpoint.
+ *
+ * Unlike updateReport({ status: "submitted" }), this endpoint enforces:
+ *  - Student-only access (403 otherwise)
+ *  - Ownership check (student can only submit their own)
+ *  - Content presence validation (422 if no content exists)
+ *  - Atomic submittedAt timestamp
+ *
+ * Call this after saving draft content if the student edited the report
+ * before submitting.
+ */
+export function submitReport(id: string): Promise<WeeklyReport> {
+  return apiFetch<WeeklyReport>(`/reports/${id}/submit`, { method: "POST" });
+}
+
 export function updateReport(
   id: string,
   payload: UpdateWeeklyReportPayload,
