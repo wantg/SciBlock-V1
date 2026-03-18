@@ -5,6 +5,7 @@ import { useNewExperimentDraft } from "@/contexts/NewExperimentDraftContext";
 import { useSciNoteStore } from "@/contexts/SciNoteStoreContext";
 import { getExperimentName } from "@/types/experimentFields";
 import { WizardShell } from "./new-experiment/WizardShell";
+import { toast } from "@/hooks/use-toast";
 
 /**
  * NewExperimentPage — creates a brand-new SciNote via the initialization wizard.
@@ -18,7 +19,6 @@ export function NewExperimentPage() {
   const { createSciNote } = useSciNoteStore();
   const { setDraftName } = useNewExperimentDraft();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const wizard = useExperimentWizard();
 
@@ -36,12 +36,16 @@ export function NewExperimentPage() {
   async function handleFinish() {
     if (isSubmitting) return;
     setIsSubmitting(true);
-    setSubmitError(null);
     try {
       const id = await createSciNote(wizard.form.data);
       navigate(`/personal/experiment/${id}/workbench`);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "创建实验失败，请重试");
+      console.error("[NewExperimentPage] handleFinish error:", err);
+      toast({
+        title: "创建实验失败",
+        description: err instanceof Error ? err.message : "请稍后重试",
+        variant: "destructive",
+      });
       setIsSubmitting(false);
     }
   }
@@ -53,18 +57,11 @@ export function NewExperimentPage() {
   );
 
   return (
-    <>
-      {submitError && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg shadow">
-          {submitError}
-        </div>
-      )}
-      <WizardShell
-        wizard={wizard}
-        navHeader={navHeader}
-        onFinish={handleFinish}
-        submitting={isSubmitting}
-      />
-    </>
+    <WizardShell
+      wizard={wizard}
+      navHeader={navHeader}
+      onFinish={handleFinish}
+      submitting={isSubmitting}
+    />
   );
 }
