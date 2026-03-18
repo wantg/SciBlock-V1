@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+.git
+.gitignore
+.vscode
+**/dist
+**/.turbo
+.DS_Store
+pnpm-debug.log*
+*.log
+attached_assets
