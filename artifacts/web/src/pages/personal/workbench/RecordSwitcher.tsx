@@ -18,8 +18,33 @@ const STATUS_DOT: Record<ExperimentStatus, string> = {
   已验证: "bg-violet-400",
 };
 
-function isRecordDeletable(record: ExperimentRecord): boolean {
-  return record.currentModules.every((m) => m.status !== "confirmed");
+/**
+ * Why this record cannot be deleted, or null if deletion is allowed.
+ *
+ * Rules (must match backend SoftDelete guards exactly):
+ *  1. confirmed / confirmed_dirty → "confirmed"
+ *  2. draft but referenced by a downstream record → "referenced"
+ *  3. otherwise → null (deletable)
+ *
+ * The "at least one record must remain" front-end guard has been removed.
+ * When all records are deleted the workbench shows an empty state.
+ */
+type DeleteBlockReason = "confirmed" | "referenced" | null;
+
+function getDeleteBlockReason(
+  record: ExperimentRecord,
+  allRecords: ExperimentRecord[],
+): DeleteBlockReason {
+  if (
+    record.confirmationState === "confirmed" ||
+    record.confirmationState === "confirmed_dirty"
+  ) {
+    return "confirmed";
+  }
+  const isReferenced = allRecords.some(
+    (r) => r.id !== record.id && r.derivedFromRecordId === record.id,
+  );
+  return isReferenced ? "referenced" : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -35,34 +60,29 @@ function isRecordDeletable(record: ExperimentRecord): boolean {
 
 interface PortalMenuProps {
   anchorRect: DOMRect;
-  record: ExperimentRecord;
-  isOnlyRecord: boolean;
+  blockReason: DeleteBlockReason;
   onDelete: () => void;
   onClose: () => void;
 }
 
 function PortalMenu({
   anchorRect,
-  record,
-  isOnlyRecord,
+  blockReason,
   onDelete,
   onClose,
 }: PortalMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const deletable = isRecordDeletable(record) && !isOnlyRecord;
+  const deletable = blockReason === null;
 
-  // Position the menu just below and aligned to the left of the anchor button
   const top  = anchorRect.bottom + 4;
   const left = anchorRect.left;
 
-  // Close on any outside mousedown
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
       }
     }
-    // slight delay so the click that opened it doesn't immediately close it
     const id = window.setTimeout(() => {
       document.addEventListener("mousedown", handleOutside);
     }, 0);
@@ -71,6 +91,11 @@ function PortalMenu({
       document.removeEventListener("mousedown", handleOutside);
     };
   }, [onClose]);
+
+  const disabledText =
+    blockReason === "referenced"
+      ? "该记录已被后续记录引用，无法删除"
+      : "已确认记录暂不支持删除，以避免影响传承链";
 
   return createPortal(
     <div
@@ -94,9 +119,7 @@ function PortalMenu({
             删除记录
           </div>
           <p className="text-[10px] text-gray-400 leading-snug">
-            {isOnlyRecord
-              ? "至少保留一条记录"
-              : "已确认记录暂不支持删除，以避免影响本体信息传承"}
+            {disabledText}
           </p>
         </div>
       )}
@@ -111,30 +134,27 @@ function PortalMenu({
 
 interface RecordTabProps {
   record: ExperimentRecord;
+  allRecords: ExperimentRecord[];
   isActive: boolean;
-  isOnlyRecord: boolean;
   onSelect: () => void;
   onDelete: (record: ExperimentRecord) => void;
 }
 
 function RecordTab({
   record,
+  allRecords,
   isActive,
-  isOnlyRecord,
   onSelect,
   onDelete,
 }: RecordTabProps) {
-  // Use the server-assigned sequenceNumber as the tab display number.
-  // For brand-new records that have not yet received a server response,
-  // workbenchUtils pre-fills sequenceNumber with an estimated ordinal
-  // (records.length + 1), so this is always a meaningful value.
   const displaySeq = record.sequenceNumber;
-  const [menuOpen, setMenuOpen]   = useState(false);
+  const [menuOpen, setMenuOpen]     = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  const label = record.title.trim() || RECORD_FALLBACK;
-  const dot   = STATUS_DOT[record.experimentStatus];
+  const label      = record.title.trim() || RECORD_FALLBACK;
+  const dot        = STATUS_DOT[record.experimentStatus];
+  const blockReason = getDeleteBlockReason(record, allRecords);
 
   function handleMoreClick(e: React.MouseEvent) {
     e.stopPropagation();
@@ -142,7 +162,6 @@ function RecordTab({
       setMenuOpen(false);
       return;
     }
-    // Capture the button's position for portal-based fixed positioning
     if (btnRef.current) {
       setAnchorRect(btnRef.current.getBoundingClientRect());
     }
@@ -156,7 +175,6 @@ function RecordTab({
 
   return (
     <div className="relative flex-shrink-0">
-      {/* Tab row */}
       <div
         className={[
           "flex items-center gap-1.5 pl-3 pr-1.5 py-2 text-xs whitespace-nowrap",
@@ -171,9 +189,6 @@ function RecordTab({
         <span className="text-gray-300 font-mono">{String(displaySeq).padStart(2, "0")}</span>
         <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
         <span className="truncate max-w-[120px]">{label}</span>
-        {/* Dirty indicator — shown on all tabs whose confirmed content has
-            been edited since last confirm, so users can see at a glance
-            which records need re-confirmation. */}
         {record.confirmationState === "confirmed_dirty" && (
           <span
             title="内容已修改，需重新确认"
@@ -181,7 +196,6 @@ function RecordTab({
           />
         )}
 
-        {/* "..." only on the active tab */}
         {isActive && (
           <button
             ref={btnRef}
@@ -199,12 +213,10 @@ function RecordTab({
         )}
       </div>
 
-      {/* Portal dropdown — bypasses all overflow clipping */}
       {isActive && menuOpen && anchorRect && (
         <PortalMenu
           anchorRect={anchorRect}
-          record={record}
-          isOnlyRecord={isOnlyRecord}
+          blockReason={blockReason}
           onDelete={handleDeleteRequest}
           onClose={() => setMenuOpen(false)}
         />
@@ -229,8 +241,6 @@ export function RecordSwitcher() {
     setPendingTrash(null);
   }
 
-  const isOnlyRecord = records.length === 1;
-
   return (
     <>
       {/*
@@ -242,8 +252,8 @@ export function RecordSwitcher() {
           <RecordTab
             key={rec.id}
             record={rec}
-            isActive={rec.id === currentRecord.id}
-            isOnlyRecord={isOnlyRecord}
+            allRecords={records}
+            isActive={rec.id === currentRecord?.id}
             onSelect={() => switchRecord(rec.id)}
             onDelete={setPendingTrash}
           />

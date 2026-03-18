@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, FlaskConical } from "lucide-react";
 import { useWorkbench } from "@/contexts/WorkbenchContext";
 import { RecordSwitcher } from "./RecordSwitcher";
 import { OntologyPanel } from "./OntologyPanel";
@@ -7,17 +7,12 @@ import { EditorPanel } from "./EditorPanel";
 import { UtilityRail } from "./UtilityRail";
 import type { WorkbenchFocusMode } from "@/types/workbench";
 
-// Focus mode → OntologyPanel percentage width
 const ONTOLOGY_WIDTH: Record<WorkbenchFocusMode, string> = {
   ontology: "48%",
   balanced: "34%",
   editor:   "20%",
 };
 
-/**
- * FocusDivider — thin vertical strip between OntologyPanel and EditorPanel.
- * Two chevrons shift focus left (expand editor) or right (expand ontology).
- */
 function FocusDivider() {
   const { focusMode, setFocusMode } = useWorkbench();
 
@@ -54,43 +49,67 @@ function FocusDivider() {
 }
 
 /**
+ * EmptyRecordsState — shown when a SciNote has no active experiment records.
+ *
+ * This happens when the user deletes all draft records (confirmed records
+ * cannot be deleted, so if any existed this state is unreachable).
+ * The user can create a fresh record from here.
+ */
+function EmptyRecordsState() {
+  const { createNewRecord } = useWorkbench();
+  return (
+    <div className="flex flex-1 items-center justify-center bg-white">
+      <div className="text-center space-y-3 px-6">
+        <FlaskConical className="w-10 h-10 text-gray-200 mx-auto" />
+        <p className="text-sm font-medium text-gray-500">暂无实验记录</p>
+        <p className="text-xs text-gray-400">当前 SciNote 还没有任何实验记录</p>
+        <button
+          onClick={createNewRecord}
+          className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gray-900 text-white text-xs hover:bg-gray-700 transition-colors"
+        >
+          + 新建第一条实验记录
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * WorkbenchLayout — full page layout inside WorkbenchProvider.
  *
  *   [RecordSwitcher — full width tab bar]
  *   [OntologyPanel | FocusDivider | EditorPanel | UtilityRail]
  *
- * OntologyPanel width is controlled by focusMode.
- * UtilityRail is always fixed and unaffected by focus changes.
+ * When records is empty (all drafts deleted), renders EmptyRecordsState
+ * below the switcher bar instead of the three-panel area.
  */
 export function WorkbenchLayout() {
-  const { focusMode } = useWorkbench();
+  const { focusMode, records } = useWorkbench();
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      {/* Record switcher spans the full width above the three-panel area */}
       <RecordSwitcher />
 
-      {/* Three-panel area */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Left: ontology panel */}
-        <div
-          style={{ width: ONTOLOGY_WIDTH[focusMode] }}
-          className="flex-shrink-0 transition-[width] duration-200 ease-in-out min-h-0"
-        >
-          <OntologyPanel />
+      {records.length === 0 ? (
+        <EmptyRecordsState />
+      ) : (
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <div
+            style={{ width: ONTOLOGY_WIDTH[focusMode] }}
+            className="flex-shrink-0 transition-[width] duration-200 ease-in-out min-h-0"
+          >
+            <OntologyPanel />
+          </div>
+
+          <FocusDivider />
+
+          <div className="flex-1 min-w-0 min-h-0">
+            <EditorPanel />
+          </div>
+
+          <UtilityRail />
         </div>
-
-        {/* Divider with focus arrows */}
-        <FocusDivider />
-
-        {/* Middle: editor — takes remaining space */}
-        <div className="flex-1 min-w-0 min-h-0">
-          <EditorPanel />
-        </div>
-
-        {/* Right: utility rail — always fixed */}
-        <UtilityRail />
-      </div>
+      )}
     </div>
   );
 }

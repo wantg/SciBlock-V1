@@ -451,17 +451,18 @@ export function WorkbenchProvider({
   }
 
   function moveToTrash(recordId: string) {
-    // Guard 1: never trash the last remaining record
-    if (records.length <= 1) return;
-
     const idx = records.findIndex((r) => r.id === recordId);
     if (idx === -1) return;
 
     const record = records[idx];
 
-    // Switch to adjacent record before removal
-    const nextRecord = idx > 0 ? records[idx - 1] : records[idx + 1];
-    setCurrentRecordId(nextRecord.id);
+    // Switch to an adjacent record before removal — only when other records exist.
+    // When this is the last record the workbench transitions to the empty state;
+    // no navigation is needed.
+    if (records.length > 1) {
+      const nextRecord = idx > 0 ? records[idx - 1] : records[idx + 1];
+      setCurrentRecordId(nextRecord.id);
+    }
     setFlowDraftInserted(false);
 
     // Remove from local active list
