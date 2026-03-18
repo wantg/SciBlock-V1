@@ -6,7 +6,7 @@
  */
 
 import { db } from "@workspace/db";
-import { weeklyReportsTable } from "@workspace/db/schema";
+import { weeklyReportsTable, studentsTable } from "@workspace/db/schema";
 import { eq, ne, and, desc, sql } from "drizzle-orm";
 
 export type ReportRow = typeof weeklyReportsTable.$inferSelect;
@@ -31,6 +31,54 @@ export async function markReportSubmitted(id: string): Promise<ReportRow | null>
     .where(eq(weeklyReportsTable.id, id))
     .returning();
   return row ?? null;
+}
+
+/**
+ * Updates a report's status and, when transitioning to "reviewed",
+ * also writes `reviewedAt`. Generic enough to serve any instructor-driven
+ * status transition (under_review, needs_revision, reviewed).
+ *
+ * @param id     Weekly report ID
+ * @param status New status string
+ * @returns Updated row, or null if not found
+ */
+export async function setReportStatus(
+  id: string,
+  status: string,
+): Promise<ReportRow | null> {
+  const update: Record<string, unknown> = {
+    status,
+    updatedAt: new Date(),
+  };
+  if (status === "reviewed") {
+    update.reviewedAt = new Date();
+  }
+  const [row] = await db
+    .update(weeklyReportsTable)
+    .set(update)
+    .where(eq(weeklyReportsTable.id, id))
+    .returning();
+  return row ?? null;
+}
+
+/**
+ * Returns the user_id (auth account) for the student who owns the report.
+ * Used to send message notifications to the student when their report
+ * status changes.
+ *
+ * @param reportId Weekly report ID
+ * @returns The student's user_id, or null if the student has no linked account
+ */
+export async function findStudentUserIdByReport(
+  reportId: string,
+): Promise<string | null> {
+  const rows = await db
+    .select({ userId: studentsTable.userId })
+    .from(weeklyReportsTable)
+    .innerJoin(studentsTable, eq(studentsTable.id, weeklyReportsTable.studentId))
+    .where(eq(weeklyReportsTable.id, reportId))
+    .limit(1);
+  return rows[0]?.userId ?? null;
 }
 
 /**

@@ -17,7 +17,7 @@ export function TeamReportsPage() {
     students,
     loading,
     error,
-    changeStatus,
+    reviewReport,
   } = useTeamReports();
 
   const [selectedStudent, setSelectedStudent] = useState<StudentWithReport | null>(null);
@@ -102,7 +102,7 @@ export function TeamReportsPage() {
             selected={syncedStudent}
             weekStart={weekStart}
             weekEnd={weekEnd}
-            onChangeStatus={changeStatus}
+            onReview={reviewReport}
           />
         </div>
       </div>

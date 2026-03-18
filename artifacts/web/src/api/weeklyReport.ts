@@ -6,6 +6,7 @@ import type {
   UpdateWeeklyReportPayload,
   AddWeeklyReportCommentPayload,
   ReportPreviewResponse,
+  ReviewReportPayload,
 } from "@/types/weeklyReport";
 
 // ---------------------------------------------------------------------------
@@ -145,6 +146,30 @@ export function updateReport(
 
 export function deleteReport(id: string): Promise<void> {
   return apiFetch<void>(`/reports/${id}`, { method: "DELETE" });
+}
+
+// ---------------------------------------------------------------------------
+// Review — POST /reports/:id/review (instructor-only)
+//
+// Atomically: updates the report status (reviewed | needs_revision),
+// optionally inserts a comment, and sends a message notification to the student.
+// ---------------------------------------------------------------------------
+
+/**
+ * Records the instructor's review decision for a weekly report.
+ *
+ * @param id      Report ID
+ * @param payload action + reviewerName + optional feedbackText
+ * @returns The updated WeeklyReport
+ */
+export function reviewReport(
+  id: string,
+  payload: ReviewReportPayload,
+): Promise<WeeklyReport> {
+  return apiFetch<WeeklyReport>(`/reports/${id}/review`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 // ---------------------------------------------------------------------------

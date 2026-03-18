@@ -8,7 +8,7 @@ Key capabilities:
 - A 3-panel experiment workbench (Ontology, Editor, Utility) with TipTap rich-text, module-level editing, and AI report generation.
 - Team member management: invite students, student card grid, per-student detail tabs.
 - Messaging inbox: invitation, comment, and share-request notifications.
-- Weekly report system: student creation/submission + AI auto-summary (自动汇总) with 3-step wizard; instructor review with report_comment notifications.
+- Weekly report system: student creation/submission + AI auto-summary (自动汇总) with 3-step wizard; instructor review workflow with atomic status update (POST /reports/:id/review) and automatic message notifications to students (types: report_reviewed, report_needs_revision, report_comment).
 - AI Weekly Report module: rule-based experiment aggregation (no LLM marketing language), structured AiReportContent with statusDistribution, projectSummary, operationSummary, resultsTrends, parameterChanges, provenanceExperiments sections.
 - AI chat integration (Aliyun DashScope / OpenAI).
 - Calendar view.

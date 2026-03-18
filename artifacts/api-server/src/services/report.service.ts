@@ -8,6 +8,7 @@
 import {
   findReportById,
   markReportSubmitted,
+  setReportStatus,
   type ReportRow,
 } from "../repositories/report.repository";
 
@@ -87,6 +88,76 @@ export async function submitReport(
   }
 
   const updated = await markReportSubmitted(reportId);
+  if (!updated) {
+    return {
+      ok: false,
+      error: { code: "not_found", message: "Report disappeared during update" },
+    };
+  }
+
+  return { ok: true, report: updated };
+}
+
+// ---------------------------------------------------------------------------
+// Review report (instructor action)
+// ---------------------------------------------------------------------------
+
+/** The two outcome actions an instructor can take when reviewing a report. */
+export type ReviewAction = "approve" | "request_revision";
+
+export type ReviewReportErrorCode =
+  | "not_found"
+  | "invalid_state";
+
+export interface ReviewReportError {
+  code: ReviewReportErrorCode;
+  message: string;
+}
+
+export type ReviewReportResult =
+  | { ok: true; report: ReportRow }
+  | { ok: false; error: ReviewReportError };
+
+/**
+ * Records an instructor's review decision for a weekly report.
+ *
+ * Business rules enforced here (not in the route):
+ *  - The report must be in a reviewable state (submitted, under_review, needs_revision).
+ *    Drafts have not been shared with the instructor; already-reviewed reports
+ *    may be re-reviewed.
+ *  - approve    → status: "reviewed",      reviewedAt written.
+ *  - request_revision → status: "needs_revision".
+ *
+ * Side-effect (notification) is intentionally left to the route layer so this
+ * service has no dependency on the messaging infrastructure.
+ *
+ * Returns a discriminated union so the route layer maps errors to HTTP codes
+ * without containing any business logic itself.
+ */
+export async function reviewReport(
+  reportId: string,
+  action: ReviewAction,
+): Promise<ReviewReportResult> {
+  const report = await findReportById(reportId);
+
+  if (!report) {
+    return { ok: false, error: { code: "not_found", message: "Report not found" } };
+  }
+
+  const reviewableStatuses = ["submitted", "under_review", "needs_revision", "reviewed"];
+  if (!reviewableStatuses.includes(report.status)) {
+    return {
+      ok: false,
+      error: {
+        code: "invalid_state",
+        message: `Cannot review a report with status: ${report.status}`,
+      },
+    };
+  }
+
+  const newStatus = action === "approve" ? "reviewed" : "needs_revision";
+
+  const updated = await setReportStatus(reportId, newStatus);
   if (!updated) {
     return {
       ok: false,

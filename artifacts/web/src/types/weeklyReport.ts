@@ -180,6 +180,19 @@ export interface AddWeeklyReportCommentPayload {
 }
 
 // ---------------------------------------------------------------------------
+// Review payload (instructor → POST /reports/:id/review)
+// ---------------------------------------------------------------------------
+
+/** The two terminal review decisions an instructor can make on a weekly report. */
+export type ReviewAction = "approve" | "request_revision";
+
+export interface ReviewReportPayload {
+  action: ReviewAction;
+  reviewerName: string;
+  feedbackText?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

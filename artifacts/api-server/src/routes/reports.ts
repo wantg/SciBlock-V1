@@ -11,6 +11,7 @@
  * PATCH  /reports/:id                 — 更新周报内容 / 状态
  * DELETE /reports/:id                 — 删除周报
  * GET    /reports/:id/comments        — 查看评论
+ * POST   /reports/:id/review          — 导师批阅周报（状态更新 + 消息通知学生）
  * POST   /reports/:id/comments        — 添加评论（导师专属；写入后发消息通知学生）
  *
  * 所有路由均受 requireAuth 保护（在 routes/index.ts 统一注册）。
@@ -33,11 +34,12 @@ import {
 import { eq, desc } from "drizzle-orm";
 import { requireInstructor } from "../middleware/requireAuth";
 import { getStudentByUserId } from "../services/student.service";
-import { submitReport } from "../services/report.service";
+import { submitReport, reviewReport } from "../services/report.service";
 import { runReportGeneration } from "../services/report-generation.service";
 import {
   findSubmittedReportsForTeam,
   findLastSubmissionPerStudent,
+  findStudentUserIdByReport,
 } from "../repositories/report.repository";
 
 const router = Router();
@@ -594,6 +596,103 @@ router.get("/:id/comments", async (req, res) => {
   } catch (err) {
     console.error("[reports] GET /:id/comments error:", err);
     res.status(500).json({ message: "Failed to fetch comments" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /reports/:id/review
+//
+// Instructor-only. Records the instructor's review decision (approve or
+// request_revision) for a weekly report. The service layer enforces the
+// valid state transitions. After responding, a fire-and-forget notification
+// is sent to the student so they are informed of the review outcome.
+//
+// Body:
+//   action       "approve" | "request_revision"
+//   reviewerName string  (instructor's display name, for the notification)
+//   feedbackText string? (optional; inserted as a comment if present)
+// ---------------------------------------------------------------------------
+
+router.post("/:id/review", requireInstructor, async (req, res) => {
+  const reportId = req.params["id"] as string;
+  const { action, reviewerName, feedbackText } = req.body as {
+    action: string;
+    reviewerName: string;
+    feedbackText?: string;
+  };
+
+  if (!action || !reviewerName) {
+    res.status(400).json({ message: "action and reviewerName are required" });
+    return;
+  }
+  if (action !== "approve" && action !== "request_revision") {
+    res.status(400).json({ message: "action must be 'approve' or 'request_revision'" });
+    return;
+  }
+
+  try {
+    const result = await reviewReport(reportId, action as "approve" | "request_revision");
+
+    if (!result.ok) {
+      const status = result.error.code === "not_found" ? 404 : 422;
+      res.status(status).json({ message: result.error.message });
+      return;
+    }
+
+    // Optionally insert instructor comment when feedback text is provided
+    if (feedbackText?.trim()) {
+      const instructorId = res.locals["userId"] as string;
+      await db.insert(reportCommentsTable).values({
+        reportId,
+        authorId:   instructorId,
+        authorName: reviewerName,
+        authorRole: "instructor",
+        content:    feedbackText.trim(),
+      });
+    }
+
+    res.json(result.report);
+
+    // Fire-and-forget: notify the student of the review outcome (non-fatal)
+    setImmediate(async () => {
+      try {
+        const studentUserId = await findStudentUserIdByReport(reportId);
+        if (!studentUserId) return;
+
+        const report = result.report;
+        const isApproved = action === "approve";
+        const dateRange =
+          report.dateRangeStart && report.dateRangeEnd
+            ? `${report.dateRangeStart} 至 ${report.dateRangeEnd}`
+            : report.weekStart;
+
+        await db.insert(messagesTable).values({
+          recipientId: studentUserId,
+          senderName:  reviewerName,
+          type:        isApproved ? "report_reviewed" : "report_needs_revision",
+          status:      "unread",
+          title: isApproved
+            ? `导师已批阅你的周报《${report.title}》`
+            : `导师要求修改你的周报《${report.title}》`,
+          body: feedbackText?.trim()
+            ? (feedbackText.length > 80 ? feedbackText.slice(0, 80) + "…" : feedbackText)
+            : isApproved
+              ? "你的周报已通过批阅，请继续保持。"
+              : "请根据导师意见修改后重新提交。",
+          metadata: {
+            reportId,
+            reportTitle:     report.title,
+            reportDateRange: dateRange,
+            action,
+          },
+        });
+      } catch (notifyErr) {
+        console.error("[reports] POST /:id/review notification error:", notifyErr);
+      }
+    });
+  } catch (err) {
+    console.error("[reports] POST /:id/review error:", err);
+    res.status(500).json({ message: "Failed to review report" });
   }
 });
 

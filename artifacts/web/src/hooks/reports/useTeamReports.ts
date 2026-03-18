@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { fetchTeamReports, updateReport, addReportComment } from "@/api/weeklyReport";
+import { fetchTeamReports, reviewReport as apiReviewReport } from "@/api/weeklyReport";
 import type { TeamReportsResponse } from "@/api/weeklyReport";
-import type { WeeklyReport, WeeklyReportStatus, AddWeeklyReportCommentPayload } from "@/types/weeklyReport";
+import type { WeeklyReport, ReviewAction } from "@/types/weeklyReport";
 import { getWeekMonday, getWeekSunday } from "@/types/weeklyReport";
 
 export interface StudentWithReport {
@@ -31,10 +31,16 @@ interface UseTeamReportsReturn {
   loading: boolean;
   error: string | null;
   reload: () => void;
-  changeStatus: (
+  /**
+   * Records an instructor review decision for the given report.
+   * Calls POST /reports/:id/review (status update + optional comment + student notification).
+   * Updates local state optimistically after the server confirms.
+   */
+  reviewReport: (
     reportId: string,
-    status: WeeklyReportStatus,
-    comment?: AddWeeklyReportCommentPayload,
+    action: ReviewAction,
+    reviewerName: string,
+    feedbackText?: string,
   ) => Promise<void>;
 }
 
@@ -95,13 +101,14 @@ export function useTeamReports(): UseTeamReportsReturn {
     return { ...s, report, lastSubmission };
   });
 
-  const changeStatus = useCallback(
+  const reviewReport = useCallback(
     async (
       reportId: string,
-      status: WeeklyReportStatus,
-      comment?: AddWeeklyReportCommentPayload,
+      action: ReviewAction,
+      reviewerName: string,
+      feedbackText?: string,
     ) => {
-      const updated = await updateReport(reportId, { status });
+      const updated = await apiReviewReport(reportId, { action, reviewerName, feedbackText });
       setData((prev) => {
         if (!prev) return prev;
         return {
@@ -109,9 +116,6 @@ export function useTeamReports(): UseTeamReportsReturn {
           reports: prev.reports.map((r) => (r.id === reportId ? updated : r)),
         };
       });
-      if (comment) {
-        await addReportComment(reportId, comment);
-      }
     },
     [],
   );
@@ -126,6 +130,6 @@ export function useTeamReports(): UseTeamReportsReturn {
     loading,
     error,
     reload: () => load(weekStart),
-    changeStatus,
+    reviewReport,
   };
 }
