@@ -111,7 +111,6 @@ function PortalMenu({
 
 interface RecordTabProps {
   record: ExperimentRecord;
-  index: number;
   isActive: boolean;
   isOnlyRecord: boolean;
   onSelect: () => void;
@@ -120,12 +119,16 @@ interface RecordTabProps {
 
 function RecordTab({
   record,
-  index,
   isActive,
   isOnlyRecord,
   onSelect,
   onDelete,
 }: RecordTabProps) {
+  // Use the server-assigned sequenceNumber as the tab display number.
+  // For brand-new records that have not yet received a server response,
+  // workbenchUtils pre-fills sequenceNumber with an estimated ordinal
+  // (records.length + 1), so this is always a meaningful value.
+  const displaySeq = record.sequenceNumber;
   const [menuOpen, setMenuOpen]   = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -165,7 +168,7 @@ function RecordTab({
         onClick={onSelect}
         title={label}
       >
-        <span className="text-gray-300 font-mono">{String(index).padStart(2, "0")}</span>
+        <span className="text-gray-300 font-mono">{String(displaySeq).padStart(2, "0")}</span>
         <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
         <span className="truncate max-w-[120px]">{label}</span>
         {/* Dirty indicator — shown on all tabs whose confirmed content has
@@ -235,11 +238,10 @@ export function RecordSwitcher() {
         The dropdown uses createPortal to escape both overflow contexts.
       */}
       <div className="flex-shrink-0 flex items-center border-b border-gray-100 bg-gray-50 overflow-x-auto">
-        {records.map((rec, i) => (
+        {records.map((rec) => (
           <RecordTab
             key={rec.id}
             record={rec}
-            index={i + 1}
             isActive={rec.id === currentRecord.id}
             isOnlyRecord={isOnlyRecord}
             onSelect={() => switchRecord(rec.id)}

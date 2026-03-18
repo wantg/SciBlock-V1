@@ -33,6 +33,7 @@ The project employs a pnpm monorepo structure, separating deployable services (`
 -   **confirmed_dirty UI**: `DirtyWarningBanner` (amber strip + "立即确认" button) in `ExperimentHeader`; pulse-ring amber confirm button; amber dot on `RecordSwitcher` tabs; amber `ConfirmationStateBadge`. All triggered when the server returns `confirmationState: "confirmed_dirty"` after a PATCH.
 -   **Server State Sync**: `WorkbenchContext.syncServerState()` applies PATCH response `confirmationState` back to local `records` state after every `updateExperiment()` call (modules, title, tags, editor). Fixes confirmed_dirty not appearing in UI.
 -   **`AttributeTagRow` null-guard**: `tags` prop defaulted to `[]` to prevent crash when inherited module has no attributes field.
+-   **Legacy sequence_number fix**: goose migration `20260318005_fix_legacy_sequence_numbers.sql` repaired 16 legacy records (seq=0 → correct ordinals). All were `draft`, not in any inheritance chain. `RecordSwitcher` now uses `record.sequenceNumber` (not array index) for tab display.
 
 **Express API Server (`artifacts/api-server`)**:
 -   **Framework**: Express 5.
