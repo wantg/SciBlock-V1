@@ -105,7 +105,7 @@ export function AttributeTagRow({
   valuePlaceholder,
   className = "",
 }: Props) {
-  const tags = tagsProp ?? [];
+  const tags = Array.isArray(tagsProp) ? tagsProp : [];
   const [showAdd, setShowAdd] = useState(false);
 
   function updateTag(id: string, updated: Tag) {

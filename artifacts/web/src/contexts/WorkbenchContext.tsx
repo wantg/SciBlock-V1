@@ -27,6 +27,7 @@ import {
 import {
   createExperimentRecord,
   createExperimentRecordWithModules,
+  blankAllModules,
   generateFlowDraft,
 } from "@/data/workbenchUtils";
 import {
@@ -482,12 +483,18 @@ export function WorkbenchProvider({
     // Determine which modules to seed the local temp record with.
     // - First record (records.length === 0): use wizard-derived initialModules so the
     //   user sees real content immediately while the POST is in flight.
-    // - Subsequent records: show empty locally; the server will apply inheritance and
-    //   the response will replace the temp record with the correct inherited modules.
+    // - Subsequent records: use blankAllModules() — a full set of 5 empty-content
+    //   module stubs.  The server response will replace this with the correct
+    //   inherited modules.  We must NOT send [] here: MergeHeritableModules only
+    //   appends heritable keys that were missing from base, so an empty base
+    //   produces a result with only 4 heritable modules — the data module
+    //   disappears.  Sending blank stubs ensures data is preserved in base
+    //   (non-heritable, kept as-is) while heritable modules are overwritten by
+    //   the chain defaults.
     const isFirstRecord = records.length === 0;
     const seedModules: OntologyModule[] = isFirstRecord && initialModulesRef.current
       ? initialModulesRef.current
-      : [];
+      : blankAllModules();
 
     const localRecord = createExperimentRecordWithModules(sciNoteId, seedModules, records.length + 1);
 
@@ -502,8 +509,9 @@ export function WorkbenchProvider({
     //
     // For the first record: send the wizard modules as currentModules so the server
     // stores them as scinotes.initial_modules (the inheritance chain bootstrap).
-    // For subsequent records: send empty [] so the server applies its own inheritance
-    // logic (current_confirmed_modules → initial_modules) without mock data interference.
+    // For subsequent records: send blankAllModules() as the base so the server can:
+    //   (a) replace heritable modules with inherited defaults from the chain, AND
+    //   (b) keep the data module present (non-heritable, left as blank/fresh).
     createExperiment(sciNoteId, {
       title: localRecord.title || "未命名实验",
       purposeInput: localRecord.purposeInput,

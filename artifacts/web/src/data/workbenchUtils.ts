@@ -212,6 +212,30 @@ function makeModule(
   };
 }
 
+/**
+ * Returns the full set of 5 ontology modules, each with empty structuredData.
+ *
+ * Purpose: used as the `currentModules` base when creating a new (non-first)
+ * experiment record.  The server's MergeHeritableModules will:
+ *   - Replace heritable module content (system/preparation/operation/measurement)
+ *     with inherited defaults from the chain.
+ *   - Keep the non-heritable data module from this base — preserving its
+ *     existence in the result while leaving its content blank/fresh for this
+ *     record.
+ *
+ * Sending an empty [] instead breaks this: MergeHeritableModules appends only
+ * the 4 heritable modules, causing the data module to disappear entirely.
+ */
+export function blankAllModules(): OntologyModule[] {
+  return [
+    makeModule("system",      "实验系统", {}),
+    makeModule("preparation", "实验准备", {}),
+    makeModule("operation",   "实验操作", {}),
+    makeModule("measurement", "测量过程", {}),
+    makeModule("data",        "实验数据", {}),
+  ];
+}
+
 // ----- Step 2 → 实验系统 -----
 
 /**
