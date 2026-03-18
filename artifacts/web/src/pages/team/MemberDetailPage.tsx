@@ -44,7 +44,6 @@ import { SectionHeading }                 from "../../components/team/SectionHea
 import BasicInfoCard                      from "./detail/BasicInfoCard";
 import PapersCard                         from "./detail/PapersCard";
 import ExperimentRecordsCard              from "./detail/ExperimentRecordsCard";
-import WeeklyReportsCard                  from "./detail/WeeklyReportsCard";
 import { StudentReportsCard }             from "./detail/StudentReportsCard";
 import { MemberSciNoteExperimentsPanel }  from "./detail/MemberSciNoteExperimentsPanel";
 import { MemberReportDetailPanel }        from "./detail/MemberReportDetailPanel";
@@ -174,22 +173,16 @@ export default function MemberDetailPage() {
       <section>
         <SectionHeading icon={<ScrollText size={12} />} title="周报" count={reportCount} />
         {isInstructor ? (
-          // Instructor view: read-only, selectable, full WeeklyReport type
+          // Instructor view: read-only, selectable, right-panel detail
           <StudentReportsCard
             studentId={student.id}
             selectedReportId={selectedReport?.id ?? null}
             onSelectReport={handleSelectReport}
             onCountChange={setReportCount}
           />
-        ) : isOwnProfile ? (
-          // Student self-view: editable, submit-capable
-          <WeeklyReportsCard
-            studentId={student.id}
-            onCountChange={setReportCount}
-            canEdit={canEdit}
-          />
         ) : (
-          // Student viewing another student's profile (edge case — not exposed in current nav)
+          // Non-instructor (including own profile): locked — students manage
+          // their own reports via the personal reports section, not here.
           <div className="flex items-center gap-2 px-3 py-3 rounded-lg bg-gray-50 border border-dashed border-gray-200 text-gray-400">
             <Lock size={13} className="flex-shrink-0" />
             <span className="text-xs">仅导师可查看成员周报</span>
