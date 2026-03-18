@@ -132,8 +132,8 @@ export function TeamReportDetailPanel({ selected, weekStart, weekEnd, onChangeSt
                   <ul className="mt-4 space-y-1.5">
                     {aiContent.projectSummary.map((p, i) => (
                       <li key={i} className="text-sm text-gray-700">
-                        <span className="font-medium">{p.project}：</span>
-                        {p.summary}
+                        <span className="font-medium">{p.sciNoteTitle}：</span>
+                        {p.experimentCount} 条实验
                       </li>
                     ))}
                   </ul>

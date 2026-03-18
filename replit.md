@@ -27,7 +27,11 @@ The project is a pnpm monorepo with `artifacts/` (deployable services) and `lib/
 - **Routing**: Wouter
 - **State**: React Context (`SciNoteStoreContext`, `UserContext`, `TrashContext`, etc.)
 - **UI**: shadcn/ui primitives + Tailwind CSS
-- **API client**: `src/api/` — `client.ts` (apiFetch + token helpers), `auth.ts`, `scinotes.ts`, `experiments.ts`
+- **API client**: `src/api/` — `client.ts` (apiFetch + token helpers), `auth.ts`, `scinotes.ts`, `experiments.ts`, `weeklyReport.ts` (report CRUD + submit)
+- **Report component tree**:
+  - `components/reports/AiReportSections.tsx` — pure presentation: SectionCard, SummaryCard, StatusCard, ProjectSummaryCard, OperationCard, TrendsCard, ParamCard, ProvenanceCard (no data fetching)
+  - `components/reports/ReportSubmitAction.tsx` — submit/status banner (draft→submit, needs_revision→resubmit, submitted→confirmation)
+  - `pages/personal/reports/detail/AiReportDetailPanel.tsx` — thin layout + orchestration; imports from above two files
 - **Auth**: JWT stored in `localStorage["sciblock:token"]`; injected as `Authorization: Bearer <token>` on every API call
 - **Base path**: `BASE_PATH` env var (defaults to `/`); injected by Replit at runtime
 - **Port**: `PORT` env var (default 22333)
@@ -42,7 +46,12 @@ The project is a pnpm monorepo with `artifacts/` (deployable services) and `lib/
 - **Password hashing**: bcrypt
 - **Database**: `@workspace/db` (Drizzle ORM over PostgreSQL)
 - **Layered architecture**: `src/routes/` (HTTP only) → `src/services/` (business logic) → `src/repositories/` (DB access). No cross-layer shortcuts.
-- **Routes**: `src/routes/` — messages, team, reports, users (new), AI chat
+- **Service layer details**:
+  - `report.service.ts` — `submitReport()` (validation + atomic status write)
+  - `report-generation.service.ts` — `buildAiContent()` (pure transform: ExperimentRow[] → AiReportContent) + `runReportGeneration()` (async pipeline: query experiments → build content → write DB); called via `setImmediate` after 202 response
+  - `student.service.ts` — `getStudentByUserId()`
+- **Route helpers**: `resolveStudentOrRespond(userId, res, label)` in `routes/reports.ts` — centralised student-lookup-or-respond pattern (replaces 4× repeated try/catch blocks)
+- **Routes**: `src/routes/` — messages, team, reports, users, AI chat
 - **Go API proxy**: `http-proxy-middleware` forwards these prefixes to Go:
   - `POST /api/auth/login` → Go (JWT issuance)
   - `GET  /api/auth/me`    → Go (JWT verification)
