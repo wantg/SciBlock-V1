@@ -33,10 +33,15 @@ The project is a pnpm monorepo with `artifacts/` (deployable services) and `lib/
   - `components/reports/ReportSubmitAction.tsx` — submit/status banner (draft→submit, needs_revision→resubmit, submitted→confirmation)
   - `pages/personal/reports/detail/AiReportDetailPanel.tsx` — thin layout + orchestration; imports from above two files
 - **Member detail page dual-column pattern** (`pages/team/MemberDetailPage.tsx`):
-  - Right panel slot is mutually exclusive: either SciNote experiments OR weekly report detail, never both
-  - `ExperimentRecordsCard` + `MemberSciNoteExperimentsPanel` — instructor view of member's experiments (Go API, 2-level: SciNote → experiment list)
-  - `StudentReportsCard` + `MemberReportDetailPanel` — instructor view of member's weekly reports (Express API, 1-level: report → detail+comments); uses `useStudentReports` hook (GET /api/reports?studentId=:id), filters out drafts
-  - `WeeklyReportsCard` — student's own editable view (uses `useWeeklyReports` hook, GET /team/members/:id/reports)
+  - Page is a thin orchestrator — no layout logic, no permission checks, no section headings inline
+  - `hooks/team/useMemberDetailPanelState` — encapsulates selectedSciNote / selectedReport with mutual exclusion
+  - `detail/MemberDetailLayout` — pure layout (breadcrumb + single/dual column switching via `rightPanel` prop)
+  - `detail/ExperimentRecordsSection` — section wrapper (SectionHeading + permission gate + ExperimentRecordsCard)
+  - `detail/WeeklyReportsSection` — section wrapper (SectionHeading + permission gate + StudentReportsCard; owns count state for heading)
+  - `detail/SectionLockedNotice` — shared lock UI for instructor-only sections
+  - `ExperimentRecordsCard` + `MemberSciNoteExperimentsPanel` — instructor view, experiments (Go API, 2-level)
+  - `StudentReportsCard` + `MemberReportDetailPanel` — instructor view, weekly reports (Express API, 1-level); uses `useStudentReports` (GET /api/reports?studentId=:id), filters drafts
+  - Permission rule: all sections in member detail page are instructor-only; students see SectionLockedNotice
 - **Auth**: JWT stored in `localStorage["sciblock:token"]`; injected as `Authorization: Bearer <token>` on every API call
 - **Base path**: `BASE_PATH` env var (defaults to `/`); injected by Replit at runtime
 - **Port**: `PORT` env var (default 22333)
