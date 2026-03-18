@@ -1,0 +1,48 @@
+name: sciblock-prod
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: sciblock-backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_SECRET: ${ADMIN_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      ENV: ${ENV:-production}
+      NODE_ENV: ${NODE_ENV:-production}
+      BACKEND_PORT: ${BACKEND_PORT:-8080}
+      GO_PORT: ${GO_PORT:-8082}
+      GO_API_URL: http://127.0.0.1:${GO_PORT:-8082}
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-false}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+      RUN_BOOTSTRAP_SQL: ${RUN_BOOTSTRAP_SQL:-true}
+      RUN_SEED: ${RUN_SEED:-false}
+      DB_REWRITE_LOCALHOST: ${DB_REWRITE_LOCALHOST:-true}
+    ports:
+      - "${BACKEND_PORT:-8080}:${BACKEND_PORT:-8080}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:' + (process.env.BACKEND_PORT || 8080) + '/api/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: sciblock-frontend
+    environment:
+      BACKEND_UPSTREAM: backend:${BACKEND_PORT:-8080}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-22333}:80"
+    restart: unless-stopped

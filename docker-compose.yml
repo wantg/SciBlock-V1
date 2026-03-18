@@ -1,18 +1,46 @@
+name: sciblock-dev
+
 services:
+  postgres:
+    image: docker.m.daocloud.io/library/postgres:16-alpine
+    container_name: sciblock-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sciblock}
+      POSTGRES_USER: ${POSTGRES_USER:-sciblock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sciblock}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - sciblock-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sciblock} -d ${POSTGRES_DB:-sciblock}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
   backend:
     build:
       context: .
       dockerfile: docker/backend/Dockerfile
+    container_name: sciblock-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      ADMIN_SECRET: ${ADMIN_SECRET}
-      CORS_ORIGINS: ${CORS_ORIGINS:-}
-      BACKEND_PORT: ${BACKEND_PORT:-8080}
-      GO_PORT: ${GO_PORT:-8082}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sciblock}:${POSTGRES_PASSWORD:-sciblock}@postgres:5432/${POSTGRES_DB:-sciblock}
+      JWT_SECRET: ${JWT_SECRET:-sciblock-dev-jwt-change-me}
+      ADMIN_SECRET: ${ADMIN_SECRET:-sciblock-dev-admin-change-me}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:${FRONTEND_PORT:-22333}}
       ENV: ${ENV:-development}
       NODE_ENV: ${NODE_ENV:-production}
-      AUTO_MIGRATE: "true"
+      BACKEND_PORT: ${BACKEND_PORT:-8080}
+      GO_PORT: ${GO_PORT:-8082}
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-true}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+      RUN_BOOTSTRAP_SQL: ${RUN_BOOTSTRAP_SQL:-true}
+      RUN_SEED: ${RUN_SEED:-true}
+      DB_REWRITE_LOCALHOST: "false"
     ports:
       - "${BACKEND_PORT:-8080}:${BACKEND_PORT:-8080}"
     extra_hosts:
@@ -23,10 +51,14 @@ services:
     build:
       context: .
       dockerfile: docker/frontend/Dockerfile
-    environment:
-      BACKEND_UPSTREAM: backend:${BACKEND_PORT:-8080}
+    container_name: sciblock-frontend
     depends_on:
       - backend
+    environment:
+      BACKEND_UPSTREAM: backend:${BACKEND_PORT:-8080}
     ports:
       - "${FRONTEND_PORT:-22333}:80"
     restart: unless-stopped
+
+volumes:
+  sciblock-postgres-data:

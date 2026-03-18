@@ -1,6 +1,15 @@
 {
   "chat.tools.terminal.autoApprove": {
     "Copy-Item": true,
-    "pnpm": true
+    "pnpm": true,
+    "/^node -e \"JSON\\.parse\\(require\\('fs'\\)\\.readFileSync\\('package\\.json','utf8'\\)\\); console\\.log\\('package\\.json ok'\\)\"$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^if \\(Test-Path docker-compose\\.yml\\) \\{ Write-Host 'docker-compose\\.yml exists' \\}; if \\(Test-Path docker-compose\\.production\\.yml\\) \\{ Write-Host 'docker-compose\\.production\\.yml exists' \\}; if \\(Test-Path cmd/deploy\\.dev\\.ps1\\) \\{ Write-Host 'ps1 scripts exist' \\}$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "docker compose": true
   }
 }
