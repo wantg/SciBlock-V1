@@ -1,17 +1,16 @@
 # Overview
 
-SciBlock is a full-stack scientific lab management platform built as a pnpm workspace monorepo. It serves as a comprehensive digital lab notebook — covering experiment creation, tracking, team coordination, and weekly reporting — for academic research groups.
+SciBlock is a full-stack scientific lab management platform built as a pnpm workspace monorepo. It functions as a comprehensive digital lab notebook for academic research groups, encompassing experiment creation, tracking, team coordination, and weekly reporting. The platform aims to streamline scientific workflows, enhance collaboration, and automate routine tasks like report generation.
 
-Key capabilities:
-- User authentication and role-based access control (student / instructor).
-- Creation and management of "SciNotes" (experiment notebooks) via a 6-step wizard.
-- A 3-panel experiment workbench (Ontology, Editor, Utility) with TipTap rich-text, module-level editing, and AI report generation.
-- Team member management: invite students, student card grid, per-student detail page with dual-column layout (SciNote experiments OR weekly report detail in right panel).
-- Messaging inbox: invitation, comment, share-request notifications, and share delivery (experiment_shared, report_shared, share_sent types).
-- Weekly report system: student creation/submission + AI auto-summary (自动汇总) with 3-step wizard; instructor review workflow with atomic status update (POST /reports/:id/review) and automatic message notifications to students (types: report_reviewed, report_needs_revision, report_comment).
-- AI Weekly Report module: rule-based experiment aggregation (no LLM marketing language), structured AiReportContent with statusDistribution, projectSummary, operationSummary, resultsTrends, parameterChanges, provenanceExperiments sections.
-- AI chat integration (Aliyun DashScope / OpenAI).
-- Calendar view.
+Key capabilities include:
+- User authentication with role-based access control (student/instructor).
+- Guided experiment creation and management through "SciNotes."
+- A rich-text experiment workbench with module-level editing and AI-powered report generation.
+- Team and member management, including student invitations and detailed student profiles.
+- A messaging system for notifications, share requests, and share deliveries.
+- A weekly report system for student submissions, instructor reviews, and AI-driven report summarization.
+- Integration with AI chat services.
+- A calendar view for scheduling and tracking.
 
 # User Preferences
 
@@ -19,165 +18,59 @@ Iterative development with clear communication on significant changes. Detailed 
 
 # System Architecture
 
-The project is a pnpm monorepo with `artifacts/` (deployable services) and `lib/` (shared libraries).
+The project employs a pnpm monorepo structure, separating deployable services (`artifacts/`) from shared libraries (`lib/`).
 
-## Frontend (`artifacts/web`)
+**Frontend (`artifacts/web`)**:
+-   **Framework**: React 19 + Vite 6 + TypeScript.
+-   **Routing**: Wouter.
+-   **State Management**: React Context for various application states.
+-   **UI**: shadcn/ui primitives styled with Tailwind CSS.
+-   **API Client**: Structured client for interacting with backend services.
+-   **Key Features**: Shared content display, message detail routing, a well-defined report component tree, and a dual-column layout pattern for member details with permission-gated sections.
+-   **Authentication**: JWT-based, stored in `localStorage`.
+-   **Persistence**: API-first for SciNote and Experiment data, with `localStorage` and `sessionStorage` fallbacks/caches.
+-   **Experiment Inheritance**: Server-side inheritance of modules for new experiment records, with a three-state lifecycle (draft, confirmed, confirmed_dirty).
 
-- **Framework**: React 19 + Vite 6 + TypeScript
-- **Routing**: Wouter
-- **State**: React Context (`SciNoteStoreContext`, `UserContext`, `TrashContext`, etc.)
-- **UI**: shadcn/ui primitives + Tailwind CSS
-- **API client**: `src/api/` — `client.ts` (apiFetch + token helpers), `auth.ts`, `scinotes.ts`, `experiments.ts`, `weeklyReport.ts` (report CRUD + submit), `shares.ts` (fetchShareRecipients, createShare, revokeShare, searchUsers)
-- **Share UI**: `components/share/` — `ShareButton` (分享 button with count badge), `ShareModal` (user search + add + revoke), `SharedWithAvatars` (recipient avatar row with popover), `UserInfoPopover`; `hooks/useShares.ts` (auto-load on mount, addShare, removeShare); integrated into `ExperimentHeader` (Row 4 for persisted records) and `AiReportDetailPanel` (below date row)
-- **SharedContentPage**: `/shared/:shareId` route (outside AuthenticatedLayout) — validates share via API, fetches experiment or report, renders read-only with SharedFromBanner context strip
-- **Message detail dispatch**: `MessageDetail.tsx` routes `experiment_shared`/`report_shared` → `ReceivedShareDetail`, `share_sent` → `ShareSentDetail`
-- **Report component tree**:
-  - `components/reports/AiReportSections.tsx` — pure presentation: SectionCard, SummaryCard, StatusCard, ProjectSummaryCard, OperationCard, TrendsCard, ParamCard, ProvenanceCard (no data fetching)
-  - `components/reports/ReportSubmitAction.tsx` — submit/status banner (draft→submit, needs_revision→resubmit, submitted→confirmation)
-  - `pages/personal/reports/detail/AiReportDetailPanel.tsx` — thin layout + orchestration; imports from above two files
-- **Member detail page dual-column pattern** (`pages/team/MemberDetailPage.tsx`):
-  - Page is a thin orchestrator — no layout logic, no permission checks, no section headings inline
-  - `hooks/team/useMemberDetailPanelState` — encapsulates selectedSciNote / selectedReport with mutual exclusion
-  - `detail/MemberDetailLayout` — pure layout (breadcrumb + single/dual column switching via `rightPanel` prop)
-  - `detail/ExperimentRecordsSection` — section wrapper (SectionHeading + permission gate + ExperimentRecordsCard)
-  - `detail/WeeklyReportsSection` — section wrapper (SectionHeading + permission gate + StudentReportsCard; owns count state for heading)
-  - `detail/SectionLockedNotice` — shared lock UI for instructor-only sections
-  - `ExperimentRecordsCard` + `MemberSciNoteExperimentsPanel` — instructor view, experiments (Go API, 2-level)
-  - `StudentReportsCard` + `MemberReportDetailPanel` — instructor view, weekly reports (Express API, 1-level); uses `useStudentReports` (GET /api/reports?studentId=:id), filters drafts
-  - Permission rule: all sections in member detail page are instructor-only; students see SectionLockedNotice
-- **Auth**: JWT stored in `localStorage["sciblock:token"]`; injected as `Authorization: Bearer <token>` on every API call
-- **Base path**: `BASE_PATH` env var (defaults to `/`); injected by Replit at runtime
-- **Port**: `PORT` env var (default 22333)
-- **SciNote persistence**: API-first (Go backend); localStorage fallback when API unavailable
-- **Experiment persistence**: API-first (Go backend); sessionStorage as cache/fallback. `WorkbenchContext` bootstraps from `GET /api/scinotes/:id/experiments` on mount; all mutations (create, title, status, tags, editor, modules, trash, restore, confirm) go to the Go API. PATCH calls are guarded by `isServerId()` to skip temp-ID records not yet promoted to the server.
-- **Experiment Inheritance Chain** (migration `20260315004`): Server-side inheritance on record creation. Heritable modules (system/preparation/operation/measurement, NOT data) auto-inherit from `scinotes.current_confirmed_modules` → fallback to `scinotes.initial_modules` → bootstrap. Confirm-save (`POST /api/experiments/:id/confirm`) advances the SciNote's context version. Three-state lifecycle: `draft → confirmed → confirmed_dirty` (dirty when modules edited post-confirm). `ExperimentHeader` shows: InheritanceBanner (lineage display), sequence number badge, ConfirmationStateBadge, and 确认保存 button. `createNewRecord` replaces entire temp record with server response to apply inherited modules.
+**Express API Server (`artifacts/api-server`)**:
+-   **Framework**: Express 5.
+-   **Authentication**: Stateless JWT verification with `requireAuth` and `requireInstructor` middleware.
+-   **Database**: Drizzle ORM over PostgreSQL (`@workspace/db`).
+-   **Architecture**: Layered design (routes → services → repositories) for clear separation of concerns.
+-   **Key Services**: Report submission and AI report generation (asynchronous).
+-   **Routes**: Handles messages, team, reports, users, and AI chat.
+-   **Go API Proxy**: Proxies specific authentication, SciNote, and experiment-related API calls to the Go API server.
+-   **Data Ownership**: Manages `users` (shared), `students`, `papers`, `weekly_reports`, `report_comments`, `messages`, and `shares` tables.
+-   **Share System**: Manages sharing of experiments and reports between users.
 
-## Express API Server (`artifacts/api-server`)
+**Go API Server (`artifacts/go-api`)**:
+-   **Framework**: chi v5.
+-   **Authentication**: JWT (HMAC-HS256) for protected routes.
+-   **Database**: pgx/v5 connection pool for PostgreSQL.
+-   **Migrations**: goose v3 for database schema management.
+-   **Data Ownership**: Manages `scinotes` and `experiment_records` tables, and adds `role` column to `users`.
+-   **Architecture**: Follows a structured design with separate packages for config, DB, domain, repository, service, handler, middleware, and DTOs.
 
-- **Framework**: Express 5
-- **Port**: `PORT` env var (default 8080); Replit routes all `/api/*` here
-- **Auth**: Stateless JWT — `Authorization: Bearer <token>` on all protected routes; `requireAuth` middleware injects `res.locals.userId / role / email / name`; `requireInstructor` guards write operations
-- **Password hashing**: bcrypt
-- **Database**: `@workspace/db` (Drizzle ORM over PostgreSQL)
-- **Layered architecture**: `src/routes/` (HTTP only) → `src/services/` (business logic) → `src/repositories/` (DB access). No cross-layer shortcuts.
-- **Service layer details**:
-  - `report.service.ts` — `submitReport()` (validation + atomic status write)
-  - `report-generation.service.ts` — `buildAiContent()` (pure transform: ExperimentRow[] → AiReportContent) + `runReportGeneration()` (async pipeline: query experiments → build content → write DB); called via `setImmediate` after 202 response
-  - `student.service.ts` — `getStudentByUserId()`
-- **Route helpers**: `resolveStudentOrRespond(userId, res, label)` in `routes/reports.ts` — centralised student-lookup-or-respond pattern (replaces 4× repeated try/catch blocks)
-- **Routes**: `src/routes/` — messages, team, reports, users, AI chat
-- **Go API proxy**: `http-proxy-middleware` forwards these prefixes to Go:
-  - `POST /api/auth/login` → Go (JWT issuance)
-  - `GET  /api/auth/me`    → Go (JWT verification)
-  - `POST /api/auth/logout`→ Go
-  - `/api/scinotes/*`      → Go (SciNote CRUD)
-  - `/api/experiments/*`   → Go (ExperimentRecord CRUD)
-- **Owns tables**: `users` (shared), `students`, `papers`, `weekly_reports`, `report_comments`, `messages`, `shares`
-- **Share system**: `shares` table (shareId, resourceType, resourceId, resourceTitle, ownerId, recipientId, createdAt, revokedAt); `share.repository.ts` + `share.service.ts`; routes: `GET /api/shares` (list recipients), `POST /api/shares` (create + auto-create 2 messages), `DELETE /api/shares/:id` (revoke), `GET /api/users/search?q=` (user lookup); SharedContentPage (`/shared/:shareId`) validates access before rendering read-only experiment or report
-- **Key middleware**: `requireAuth` (JWT → res.locals), `requireInstructor` (role guard, placed after requireAuth)
-- **Student identity resolution**: `GET /api/users/me/student` → returns student profile bound to current user's account; `GET /api/reports` role-branches on `res.locals.role`: students get their own reports via JWT→userId→studentId lookup; instructors accept optional `?studentId=` param
-- **`students.user_id`**: nullable text, unique; links `users.id` → `students.user_id`; seed binding: `demo@sciblock.com` → 李婷 (set via SQL). TRANSITION: populated via seed/admin SQL; long-term should use Drizzle migration files.
+**Shared Libraries (`lib/`)**:
+-   **`lib/db`**: Drizzle ORM schema and migration utilities.
+-   **`lib/api-spec`**: OpenAPI 3.1 specification.
+-   **`lib/api-zod`**: Generated Zod schemas.
+-   **`lib/api-client-react`**: Generated React Query hooks.
 
-## Go API Server (`artifacts/go-api`)
-
-- **Framework**: chi v5
-- **Port**: `PORT` env var (default 8082, internal — accessed via Express proxy)
-- **Auth**: JWT (HMAC-HS256) signed on login; `RequireAuth` middleware verifies on protected routes
-- **Database**: pgx/v5 connection pool (same PostgreSQL as Express)
-- **Migrations**: goose v3 — SQL files in `internal/db/migrations/`; `AUTO_MIGRATE=true` runs on startup
-- **Owns tables**: `scinotes`, `experiment_records`; ALTER `users` to add `role` column
-- **Status**: Fully implemented — all 3 pgx repositories (user, scinote, experiment), all 15 API endpoints tested
-- **Restore semantics**: `experiment_service.Restore()` rejects restore if parent SciNote is soft-deleted (returns 403)
-- **Module path**: `sciblock/go-api`
-- **Key packages**:
-  - `cmd/server/main.go` — entrypoint, router wiring, graceful shutdown
-  - `internal/config` — env var loading with defaults
-  - `internal/db` — pgx pool factory + embedded migrations FS
-  - `internal/domain` — pure domain types (User, SciNote, ExperimentRecord)
-  - `internal/repository` — pgx implementations of SciNote + Experiment repos
-  - `internal/service` — business logic (AuthService, SciNoteService, ExperimentService)
-  - `internal/handler` — HTTP handlers wired to chi routes
-  - `internal/middleware` — CORS + RequireAuth JWT middleware
-  - `internal/dto` — JSON request/response structs
-- **Required env vars**: `DATABASE_URL`, `JWT_SECRET`
-
-## Shared Libraries (`lib/`)
-
-- **`lib/db`**: Drizzle ORM schema + migration utilities for PostgreSQL
-- **`lib/api-spec`**: OpenAPI 3.1 spec + Orval config
-- **`lib/api-zod`**: Generated Zod schemas
-- **`lib/api-client-react`**: Generated React Query hooks
-
-## Database Migration Strategy
-
-| Tool   | Owner      | Tables |
-|--------|------------|--------|
-| Drizzle / db:push | Express | `users`, `students`, `papers`, `weekly_reports`, `report_comments`, `messages` |
-| goose  | Go backend | `users.role` (ALTER), `scinotes`, `experiment_records` |
-
-Both tools target the same PostgreSQL database. All goose migrations use `IF NOT EXISTS` / `IF EXISTS` to be idempotent alongside Drizzle.
-
-## Dev Scripts
-
-| Command | Effect |
-|---------|--------|
-| `bash scripts/seed-dev-user.sh` | Create dev test user (`dev@sciblock.local` / `DevPass1234`, role: instructor) |
-| `pnpm dev` | Start all services (web + express + go) |
-| `pnpm dev:web` | Frontend only |
-| `pnpm dev:api` | Express only |
-| `pnpm dev:go` | Go API only |
-| `pnpm build` | Production build of all services |
-| `pnpm migrate` | Run Drizzle push + goose up |
-
-## Dev Seed Data
-
-The development database contains a small set of hand-seeded records used to verify UI features that require non-trivial data.
-
-| Record | Detail |
-|--------|--------|
-| **Attachment display sample** | `experiment_records` id `ae26fecc-cb80-48de-beea-2bfe1ce33e3a`, title `exp01`, owner `demo@sciblock.com` (李婷). The `measurement` module's items `meas-2` (SEM 表面形貌) and `meas-3` (四探针法电阻测量) carry 3 attachment metadata entries (`att-seed-01`, `att-seed-02`, `att-seed-03`). Used to verify the `AttachmentViewStrip` read-only display on the instructor member-experiment detail page. **Recommended to keep** — it is the only experiment in the dev DB that exercises the attachment UI path. |
-
-To remove the attachment sample if no longer needed:
-```sql
-UPDATE experiment_records
-SET current_modules = jsonb_set(
-  jsonb_set(current_modules,
-    '{3,structuredData,measurementItems,1,attachments}', 'null'::jsonb),
-  '{3,structuredData,measurementItems,2,attachments}', 'null'::jsonb)
-WHERE id = 'ae26fecc-cb80-48de-beea-2bfe1ce33e3a';
-```
-
-## Replit Workflows
-
-| Workflow | Command | Port |
-|----------|---------|------|
-| `artifacts/web: web` | `pnpm --filter @workspace/web run dev` | 22333 |
-| `artifacts/api-server: API Server` | `pnpm --filter @workspace/api-server run dev` | 8080 |
-| `artifacts/go-api: Go API` | `cd artifacts/go-api && AUTO_MIGRATE=true go run ./cmd/server/main.go` | 8082 (internal) |
-| `artifacts/mockup-sandbox: Component Preview Server` | `pnpm --filter @workspace/mockup-sandbox run dev` | 8081 |
-
-## Core Technologies
-
-- **Monorepo**: pnpm workspaces
-- **Languages**: TypeScript 5.9 (frontend + Express), Go 1.25 (Go API)
-- **Node.js**: 24
-- **Database**: PostgreSQL (Drizzle ORM + pgx/v5 + goose migrations)
-- **Build**: esbuild (Express), Vite (frontend), `go build` (Go binary)
-- **Validation**: Zod (Express/frontend), chi URL params (Go)
-- **API codegen**: Orval (from OpenAPI spec)
-- **UI**: shadcn/ui + Tailwind CSS + TipTap
+**Database Migration Strategy**:
+-   **Drizzle**: Manages tables owned by the Express API.
+-   **Goose**: Manages tables owned by the Go API, including `users.role` alteration. Both tools target the same PostgreSQL database with idempotent migrations.
 
 # External Dependencies
 
-- **PostgreSQL**: Primary database
-- **bcrypt**: Password hashing (Express + Go via golang.org/x/crypto)
-- **TipTap**: Rich-text editor in the workbench
-- **OpenAPI / Orval**: API spec + client/schema codegen
-- **shadcn/ui**: UI component library
-- **Wouter**: Lightweight React router
-- **chi**: Go HTTP router
-- **golang-jwt/jwt**: JWT signing and verification (Go)
-- **pgx/v5**: PostgreSQL driver for Go
-- **goose**: Database migration tool (Go)
-- **http-proxy-middleware**: Express → Go API proxy (Node.js)
-- **Aliyun DashScope / OpenAI**: AI chat providers
+-   **PostgreSQL**: Primary relational database for all services.
+-   **bcrypt**: Used for secure password hashing in both Express and Go API.
+-   **TipTap**: Rich-text editor used within the experiment workbench.
+-   **OpenAPI / Orval**: For API specification and automated client/schema code generation.
+-   **shadcn/ui**: UI component library for the frontend.
+-   **Wouter**: Lightweight client-side router for React.
+-   **chi**: Go HTTP router for the Go API server.
+-   **golang-jwt/jwt**: Go library for JSON Web Token handling.
+-   **pgx/v5**: PostgreSQL driver for Go.
+-   **goose**: Database migration tool for Go.
+-   **http-proxy-middleware**: Node.js middleware for proxying requests from Express to the Go API.
+-   **Aliyun DashScope / OpenAI**: AI chat providers integrated for AI functionalities.
