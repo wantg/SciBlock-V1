@@ -1,26 +1,21 @@
 import React, { useState, useRef } from "react";
-import { Pencil, Sparkles, X } from "lucide-react";
+import { Sparkles, X, Share2 } from "lucide-react";
 import { useWorkbench } from "@/contexts/WorkbenchContext";
 import { useCurrentUser } from "@/contexts/UserContext";
 import { useAiTitleAssist } from "@/hooks/useAiTitleAssist";
 import { useShares } from "@/hooks/useShares";
 import { ExperimentTitleAssist } from "./ExperimentTitleAssist";
 import { StatusPicker } from "./StatusPicker";
-import { ShareButton } from "@/components/share/ShareButton";
 import { SharedWithAvatars } from "@/components/share/SharedWithAvatars";
 import { ShareModal } from "@/components/share/ShareModal";
 
 /**
  * ExperimentHeader — top section of the OntologyPanel.
  *
- * Contains:
- *   - Editable title with hand-write / AI (Sparkles) icons
- *   - StatusPicker (colored badge dropdown)
- *   - Experiment code input
- *   - Tag input area with add/remove
- *   - Share button + shared-with avatars (owner-only, persisted records only)
- *
- * Note: the "+ 新建记录" button has moved to RecordSwitcher.
+ * Layout:
+ *   Row 1: Title + [AI icon] + [分享 button]  ← share button always in view
+ *   Row 2: Status badge + experiment code
+ *   Row 3: Tags
  */
 export function ExperimentHeader() {
   const {
@@ -40,17 +35,17 @@ export function ExperimentHeader() {
   const [shareOpen, setShareOpen] = useState(false);
   const tagInputRef = useRef<HTMLInputElement>(null);
 
-  // Only share records that have been persisted to the server (real UUID, not temp "rec_…" id).
-  const isPersisted = currentRecord.id.length > 10 && !currentRecord.id.startsWith("rec_");
-  const isOwner = !!currentUser; // workbench only renders for the owner
+  // Only allow sharing for server-persisted records (UUID contains "-").
+  const isPersisted = currentRecord.id.includes("-") && !currentRecord.id.startsWith("rec_");
+  const canShare = isPersisted && !!currentUser;
 
   const shares = useShares(
-    isPersisted
+    canShare
       ? {
           resourceType: "experiment_record",
           resourceId: currentRecord.id,
           resourceTitle: currentRecord.title,
-          ownerId: currentUser?.id ?? "",
+          ownerId: currentUser!.id,
         }
       : {
           resourceType: "experiment_record",
@@ -88,7 +83,7 @@ export function ExperimentHeader() {
   return (
     <div className="flex flex-col gap-3 px-4 py-3 border-b border-gray-100 bg-white flex-shrink-0">
 
-      {/* Row 1: Title + write / AI icons */}
+      {/* Row 1: Title + AI toggle + Share button */}
       <div className="relative">
         <div className="flex items-center gap-2">
           <input
@@ -98,14 +93,6 @@ export function ExperimentHeader() {
             placeholder="实验标题（手写或 AI 生成）"
             className="flex-1 min-w-0 text-sm font-semibold text-gray-900 bg-transparent outline-none border-b border-gray-200 focus:border-gray-500 pb-0.5 placeholder-gray-300 transition-colors"
           />
-
-          {/* Hand-write icon — visual cue only */}
-          <button
-            title="手写标题"
-            className="flex-shrink-0 p-1 text-gray-300 hover:text-gray-600 transition-colors rounded"
-          >
-            <Pencil size={13} />
-          </button>
 
           {/* AI assist toggle */}
           <button
@@ -120,14 +107,32 @@ export function ExperimentHeader() {
           >
             <Sparkles size={13} />
           </button>
+
+          {/* Share button — prominent, always visible for persisted records */}
+          {canShare && (
+            <button
+              type="button"
+              title="分享此实验记录"
+              onClick={() => setShareOpen(true)}
+              className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors"
+            >
+              <Share2 size={12} />
+              <span>分享</span>
+              {shares.recipients.length > 0 && (
+                <span className="bg-indigo-200 text-indigo-700 rounded-full px-1 text-[10px] font-bold leading-4">
+                  {shares.recipients.length}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* AI assist popover anchored below the title row */}
         <ExperimentTitleAssist {...assist} />
       </div>
 
-      {/* Row 2: Status badge + experiment code */}
-      <div className="flex items-center gap-2">
+      {/* Row 2: Status badge + experiment code + avatars (if any) */}
+      <div className="flex items-center gap-2 flex-wrap">
         <StatusPicker
           value={currentRecord.experimentStatus}
           onChange={updateStatus}
@@ -140,11 +145,15 @@ export function ExperimentHeader() {
           placeholder="实验编号"
           className="text-xs border border-gray-200 rounded-md px-2 py-1 text-gray-600 outline-none focus:border-gray-400 w-24 font-mono"
         />
+
+        {/* Shared-with avatars inline with status row */}
+        {canShare && shares.recipients.length > 0 && (
+          <SharedWithAvatars recipients={shares.recipients} />
+        )}
       </div>
 
       {/* Row 3: Tags */}
       <div className="flex flex-wrap items-center gap-1.5 min-h-[24px]">
-        {/* Existing tag chips */}
         {currentRecord.tags.map((tag) => (
           <span
             key={tag}
@@ -163,7 +172,6 @@ export function ExperimentHeader() {
           </span>
         ))}
 
-        {/* Inline tag input — visible only while actively adding */}
         {isAddingTag && (
           <input
             ref={tagInputRef}
@@ -177,8 +185,6 @@ export function ExperimentHeader() {
           />
         )}
 
-        {/* Ghost chip — the explicit "add tag" affordance.
-            Always visible when not in input mode so users can discover it. */}
         {!isAddingTag && (
           <button
             onClick={openTagInput}
@@ -189,19 +195,6 @@ export function ExperimentHeader() {
           </button>
         )}
       </div>
-
-      {/* Row 4: Share controls — only shown for persisted records */}
-      {isPersisted && isOwner && (
-        <div className="flex items-center gap-2 pt-0.5">
-          <ShareButton
-            recipientCount={shares.recipients.length}
-            onClick={() => setShareOpen(true)}
-          />
-          {shares.recipients.length > 0 && (
-            <SharedWithAvatars recipients={shares.recipients} />
-          )}
-        </div>
-      )}
 
       {/* Share modal */}
       {shareOpen && (
