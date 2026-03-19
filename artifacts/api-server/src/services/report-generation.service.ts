@@ -319,6 +319,18 @@ async function fetchExperimentsForGeneration(
   sciNoteUserId: string,
   dateRangeStart: string,
   dateRangeEnd: string,
+  /**
+   * Timestamp of the last time the student explicitly saved links for this
+   * report (can be null for old reports created before the linkage feature).
+   *
+   * Decision table:
+   *   linksLastSavedAt = NULL  → never managed → fallback to date-range OK
+   *   linksLastSavedAt ≠ NULL  → student explicitly managed links (even if
+   *                              they cleared them to empty) → use links only,
+   *                              never fallback. Prevents silent date-range
+   *                              injection after a student has taken control.
+   */
+  linksLastSavedAt: Date | null,
 ): Promise<ExperimentRow[]> {
   // Check if explicit links exist for this report
   const linksResult = await pool.query<{ experiment_record_id: string }>(
@@ -350,7 +362,14 @@ async function fetchExperimentsForGeneration(
     return expResult.rows;
   }
 
-  // Fall back: date-range query (backward-compat)
+  // Student explicitly managed links but saved an empty set →
+  // respect their choice, return empty (do NOT fallback to date range).
+  if (linksLastSavedAt !== null) {
+    return [];
+  }
+
+  // Fall back: date-range query (backward-compat for old reports that
+  // have never gone through the links workflow).
   const expResult = await pool.query<ExperimentRow>(
     `SELECT
        e.id,
@@ -401,6 +420,8 @@ export async function runReportGeneration(
   sciNoteUserId: string,
   dateRangeStart: string,
   dateRangeEnd: string,
+  /** See fetchExperimentsForGeneration for semantics. Pass null for legacy reports. */
+  linksLastSavedAt: Date | null,
 ): Promise<void> {
   try {
     const rows = await fetchExperimentsForGeneration(
@@ -408,6 +429,7 @@ export async function runReportGeneration(
       sciNoteUserId,
       dateRangeStart,
       dateRangeEnd,
+      linksLastSavedAt,
     );
 
     const aiContent = buildAiContent(rows);

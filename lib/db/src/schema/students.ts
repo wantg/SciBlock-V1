@@ -93,6 +93,12 @@ export const weeklyReportsTable = pgTable("weekly_reports", {
   dateRangeEnd: text("date_range_end"),
   /** 本次汇总纳入的实验记录数量 */
   experimentCount: integer("experiment_count").notNull().default(0),
+  /**
+   * 学生最后一次主动保存 links 的时间。
+   * NULL  → 从未操作过 links（旧报告），AI 生成可 fallback 到日期范围。
+   * NOT NULL → 学生已显式管理过 links（哪怕保存为空），AI 生成严格按 links，不 fallback。
+   */
+  linksLastSavedAt: timestamp("links_last_saved_at"),
 });
 
 export type WeeklyReport = typeof weeklyReportsTable.$inferSelect;

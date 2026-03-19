@@ -447,6 +447,7 @@ router.post("/:id/generate", async (req, res) => {
       sciNoteUserId,
       report!.dateRangeStart!,
       report!.dateRangeEnd!,
+      report!.linksLastSavedAt ?? null,
     );
   });
 });
@@ -792,6 +793,8 @@ router.put("/:id/links", async (req, res) => {
 
   try {
     // Full replace: delete existing, insert new (in a transaction)
+    // Also stamp links_last_saved_at so generation knows the student
+    // has explicitly managed links (even if they saved an empty set).
     await db.transaction(async (tx) => {
       await tx
         .delete(reportExperimentLinksTable)
@@ -802,6 +805,11 @@ router.put("/:id/links", async (req, res) => {
           ids.map((rid) => ({ reportId: id, experimentRecordId: rid })),
         );
       }
+
+      await tx
+        .update(weeklyReportsTable)
+        .set({ linksLastSavedAt: new Date(), updatedAt: new Date() })
+        .where(eq(weeklyReportsTable.id, id));
     });
 
     res.json({ reportId: id, experimentRecordIds: ids, count: ids.length });
