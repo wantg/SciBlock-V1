@@ -65,6 +65,70 @@ The project utilizes a pnpm monorepo structure, separating deployable services (
 -   Drizzle manages tables owned by the Express API.
 -   Goose manages tables owned by the Go API. Both target the same PostgreSQL database with idempotent migrations.
 
+# Completed Capabilities
+
+## Weekly Report × Experiment Record Linkage (Multi-Date Model)
+
+**Status**: Production-ready as of 2026-03-19. Fully verified end-to-end.
+
+### What was built
+The weekly report system was migrated from a "continuous date range" model to a **discrete multi-date selection model**. The canonical flow is now:
+
+```
+selected_dates → candidate experiments → explicit links → AI generation
+```
+
+### Data model
+| Table / Column | Role |
+|---|---|
+| `weekly_report_selected_dates` | One row per selected date per report. Sole source for candidate discovery. |
+| `weekly_reports.dates_last_saved_at` | `NULL` = legacy (date-range) report; `NOT NULL` = new multi-date report. Acts as the model discriminant. |
+| `weekly_reports.links_last_saved_at` | `NULL` = links never managed (date-range fallback allowed); `NOT NULL` = student has explicitly managed links (fallback permanently disabled). |
+| `weekly_report_experiment_links` | Junction table. **The only data source for AI generation.** |
+| `weekly_reports.week_start / week_end` | Set to min/max of selected_dates. Used for display and ordering only. |
+
+### Semantic boundaries (confirmed)
+- `selected_dates` is **only** a candidate pool source — used for calendar dot indicators and the `/candidate-experiments` endpoint.
+- `links` are the **sole AI material** — the generation service never reads `selected_dates`.
+- `dateRangeStart / dateRangeEnd` are **legacy fallback only** — used in the generation service only when `linksLastSavedAt IS NULL` (old reports created before this feature).
+- Empty links explicitly saved by the student are **respected** — no silent fallback to date-range even if links are empty.
+
+### API surface
+| Endpoint | Purpose |
+|---|---|
+| `GET /reports/experiment-dates?year=&month=` | Calendar dot indicators — which days have experiment records |
+| `GET /reports/candidate-experiments?dates[]=…` | Candidate experiments grouped by date for wizard Step 2 |
+| `GET /reports/:id/dates` | Read saved selected dates (student + instructor) |
+| `PUT /reports/:id/dates` | Full-replace selected dates, stamps `dates_last_saved_at` |
+| `GET /reports/:id/links` | Read linked experiment records (student + instructor) |
+| `PUT /reports/:id/links` | Full-replace links, stamps `links_last_saved_at` |
+
+### UI components
+- **`GenerateReportWizard`**: Step 1 = multi-date calendar (aria-label YYYY-MM-DD, dot indicators); Step 2 = candidate experiments grouped by date (expand/collapse, group select-all, role=checkbox per row); Step 3 = 4-phase flow (create → save dates → save links → AI generate → poll).
+- **`ReportWorkPanel`** (student): `SelectedDatesSection` (read + edit modal, new-model only) + `LinkedExperimentsSection` (supports both models).
+- **`TeamReportDetailPanel`** (instructor): Read-only "已选日期" chips + "关联实验记录" list, fetched live via API, visible only for new-model reports.
+
+### Verification results (2026-03-19)
+- Multi-date selection with real experiments (03-15 × 4 records, 03-18 × 14 records) ✅
+- Step 2 grouped display with correct counts ✅
+- 3-experiment selection across 2 dates saved correctly to DB ✅
+- Re-entry: dates and links both display correctly ✅
+- Instructor API access to dates and links confirmed ✅
+- AI generation used `links` (not `selected_dates`): `source="llm"`, `experimentCount=3` ✅
+
+---
+
+## Phase 2 Candidate Optimizations (Backlog — Not Yet Implemented)
+
+The following improvements are scoped but deferred:
+
+1. **Date picker UX** — replace the custom mini-calendar with a more polished multi-select calendar component; add keyboard navigation; show month/year jump controls.
+2. **Richer candidate experiment info** — show experiment status badge, last-modified time, and a one-line content preview in the Step 2 candidate list to help students make more informed selections.
+3. **Instructor drill-down** — allow instructors to click a linked experiment in `TeamReportDetailPanel` to expand its module content (purpose, method, results) inline, without navigating away from the report review context.
+4. **Reverse linkage view** — on the experiment workbench, surface a "引用此实验的周报" (reports that cite this experiment) badge or panel so students and instructors can trace which reports reference a given experiment record.
+
+---
+
 # External Dependencies
 
 -   **PostgreSQL**: Primary relational database.
