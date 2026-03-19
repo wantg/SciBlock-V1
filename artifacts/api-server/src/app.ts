@@ -28,13 +28,20 @@ const GO_API_PREFIXES = [
   "/api/instructor",
 ];
 
+// Experiment report endpoints are handled directly by Express (AI generation,
+// manual save, clear).  Exclude them from the Go proxy so they reach our
+// Express route handlers instead of being forwarded to Go.
+// Matches: /api/experiments/<id>/report  and  /api/experiments/<id>/report/*
+const EXPERIMENT_REPORT_RE = /^\/api\/experiments\/[^/]+\/report(\/|$)/;
+
 const goProxy = createProxyMiddleware<Request, Response>({
   target: GO_API_URL,
   changeOrigin: true,
   // pathFilter runs against req.url BEFORE Express strips any prefix,
   // because we mount the proxy at the app root (not a sub-path).
   pathFilter: (pathname: string) =>
-    GO_API_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/")),
+    GO_API_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"))
+    && !EXPERIMENT_REPORT_RE.test(pathname),
   on: {
     error: (_err: Error, _req: Request, res: Response) => {
       if (!res.headersSent) {

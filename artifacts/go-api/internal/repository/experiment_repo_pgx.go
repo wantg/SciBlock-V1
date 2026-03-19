@@ -29,7 +29,8 @@ const expColumns = `
         inherited_version_id, is_deleted, created_at, updated_at,
         sequence_number, confirmation_state, confirmed_at, confirmed_modules,
         derived_from_source_type, derived_from_record_id,
-        derived_from_record_seq, derived_from_context_ver`
+        derived_from_record_seq, derived_from_context_ver,
+        report_generated_at, report_source, report_updated_at, report_model_json`
 
 // ListBySciNote returns ExperimentRecords for a SciNote.
 // trashOnly=false → is_deleted=false (normal view)
@@ -425,6 +426,11 @@ func scanExperiment(row expScanner) (*domain.ExperimentRecord, error) {
                 derivedFromRecordID   *string
                 derivedFromRecordSeq  *int
                 derivedFromContextVer int
+                // Phase 2 report metadata
+                reportGeneratedAt *time.Time
+                reportSource      *string
+                reportUpdatedAt   *time.Time
+                reportModelJson   []byte
         )
         if err := row.Scan(
                 &id, &sciNoteID, &title, &purposeInput,
@@ -434,6 +440,7 @@ func scanExperiment(row expScanner) (*domain.ExperimentRecord, error) {
                 &sequenceNumber, &confirmationState, &confirmedAt, &confirmedModules,
                 &derivedFromSourceType, &derivedFromRecordID,
                 &derivedFromRecordSeq, &derivedFromContextVer,
+                &reportGeneratedAt, &reportSource, &reportUpdatedAt, &reportModelJson,
         ); err != nil {
                 return nil, err
         }
@@ -456,6 +463,10 @@ func scanExperiment(row expScanner) (*domain.ExperimentRecord, error) {
                 Tags:                  tags,
                 EditorContent:         editorContent,
                 ReportHtml:            reportHtml,
+                ReportGeneratedAt:     reportGeneratedAt,
+                ReportSource:          reportSource,
+                ReportUpdatedAt:       reportUpdatedAt,
+                ReportModelJson:       jsonOrNil(reportModelJson),
                 CurrentModules:        jsonOrNil(currentModules),
                 InheritedVersionID:    inheritedVersionID,
                 IsDeleted:             isDeleted,

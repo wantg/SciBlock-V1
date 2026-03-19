@@ -19,20 +19,23 @@
  * Consumer: WorkbenchContext (spreads the returned value into context value).
  */
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { ExperimentRecord } from "@/types/workbench";
 import type { ReportStatus } from "@/types/report";
-import { generateExperimentReport } from "@/api/report";
+import {
+  generateReport,
+  saveReport,
+  clearExperimentReport,
+} from "@/api/experiments";
+
+const SAVE_DEBOUNCE_MS = 2_000;
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export interface UseExperimentReportParams {
-  /** Parent SciNote metadata — forwarded to the report generation API. */
-  experimentType:     string | undefined;
-  objective:          string | undefined;
   /** Current record snapshot (used as the source for report generation). */
   currentRecord:      ExperimentRecord;
   /** Stable ID of the current record — used to update the correct item in setRecords. */
@@ -71,8 +74,6 @@ export interface UseExperimentReportResult {
 // ---------------------------------------------------------------------------
 
 export function useExperimentReport({
-  experimentType,
-  objective,
   currentRecord,
   currentRecordId,
   isGenerating,
@@ -83,6 +84,9 @@ export function useExperimentReport({
   patchCurrentRecord,
 }: UseExperimentReportParams): UseExperimentReportResult {
 
+  // Timer ref for debounced backend save (survives re-renders, never triggers re-render).
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
   // Derive reportStatus — no memo needed, values are primitives / object ref.
   const reportStatus: ReportStatus =
     isGenerating      ? "generating"
@@ -92,20 +96,15 @@ export function useExperimentReport({
 
   /**
    * Manual trigger: user clicks "重新生成" or the retry button.
-   * Uses currentRecord at call time — the useCallback deps ensure the
-   * callback re-creates whenever the record changes so content is never stale.
+   * Calls the backend AI generation endpoint; result is persisted server-side,
+   * then patched into local state.
    */
   const triggerReportGeneration = useCallback(() => {
     if (isGenerating) return;
     setIsGenerating(true);
     setHasError(false);
 
-    generateExperimentReport({
-      title:          currentRecord.title,
-      experimentType,
-      objective,
-      modules:        currentRecord.currentModules,
-    })
+    generateReport(currentRecordId)
       .then((html) => {
         setRecords((prev) =>
           prev.map((r) =>
@@ -120,24 +119,45 @@ export function useExperimentReport({
       });
   }, [
     isGenerating,
-    currentRecord,
-    experimentType,
-    objective,
     currentRecordId,
     setIsGenerating,
     setHasError,
     setRecords,
   ]);
 
+  /**
+   * Update report HTML locally (immediate) then debounce the backend PUT save.
+   * Called on every TipTap content change — must not block the UI.
+   */
   const updateReport = useCallback(
-    (html: string) => patchCurrentRecord({ reportHtml: html }),
-    [patchCurrentRecord],
+    (html: string) => {
+      patchCurrentRecord({ reportHtml: html });
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        saveReport(currentRecordId, html).catch((err) => {
+          console.error("[report] debounced save failed:", err);
+        });
+      }, SAVE_DEBOUNCE_MS);
+    },
+    [patchCurrentRecord, currentRecordId],
   );
 
+  /**
+   * Clear the report locally and on the backend (DELETE).
+   */
   const clearReport = useCallback(() => {
-    patchCurrentRecord({ reportHtml: undefined });
+    clearTimeout(saveTimerRef.current);
+    patchCurrentRecord({
+      reportHtml: undefined,
+      reportSource: undefined,
+      reportGeneratedAt: undefined,
+      reportUpdatedAt: undefined,
+    });
     setHasError(false);
-  }, [patchCurrentRecord, setHasError]);
+    clearExperimentReport(currentRecordId).catch((err) => {
+      console.error("[report] clear failed:", err);
+    });
+  }, [patchCurrentRecord, currentRecordId, setHasError]);
 
   return { reportStatus, triggerReportGeneration, updateReport, clearReport };
 }

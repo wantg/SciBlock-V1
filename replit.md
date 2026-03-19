@@ -157,8 +157,80 @@ ReportGeneratorInput
 8. 结果分析 — placeholder (Phase 2: AI-generated analysis)
 9. 实验结论 — placeholder (Phase 2: AI-generated conclusion)
 
-### Phase 2 migration path
-Replace the `setTimeout` body in `api/report.ts` with a `POST /api/experiments/:id/report/generate` call. All callers stay unchanged.
+---
+
+## Experiment Report: Phase 2 — Real AI Backend + DB Persistence
+
+**Status**: Complete as of 2026-03-19. End-to-end verified (source="ai", HTML persisted to DB).
+
+### What changed
+
+The Phase-1 local stub pipeline has been replaced with a full server-side AI generation flow:
+
+```
+POST /api/experiments/:id/report/generate   (Express)
+  ↓  reads experiment_records + scinotes from DB (ownership check)
+  ↓  mapToReportModel()        — same mapper logic as frontend Phase 1
+  ↓  callAiForReportBlocks()   — qwen-plus / OpenAI for 3 blocks: summary, analysis, conclusion
+  ↓  renderReportModel()        — same renderer logic as frontend Phase 1
+  ↓  UPDATE experiment_records  — persists html + metadata
+  → returns { html, source, generatedAt }
+```
+
+AI failure (no key, timeout, bad JSON) → graceful fallback to placeholder text (`source = "stub"`).
+
+### DB migration — 20260319006_add_report_fields.sql
+
+Four new nullable columns on `experiment_records`:
+| Column | Type | Purpose |
+|---|---|---|
+| `report_generated_at` | TIMESTAMPTZ | Set on first generation (not updated by manual edits) |
+| `report_source` | TEXT | `"ai"` / `"stub"` / `"manual"` / NULL (no report) |
+| `report_updated_at` | TIMESTAMPTZ | Updated on every save (generate or manual PUT) |
+| `report_model_json` | JSONB | ExperimentReportModel snapshot for the last generation |
+
+### New Express endpoints (handled by Express, excluded from Go proxy via EXPERIMENT_REPORT_RE)
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/experiments/:id/report/generate` | AI generation pipeline (requires auth, ownership check) |
+| `PUT` | `/api/experiments/:id/report` | Save manually edited HTML (`source = "manual"`) |
+| `DELETE` | `/api/experiments/:id/report` | Clear all report fields (reset to idle) |
+
+### New Express service
+
+`artifacts/api-server/src/services/experiment-report.service.ts` — fully self-contained:
+- `mapToReportModel()` — mapper ported from frontend (reads modules JSON, produces structured model)
+- `renderReportModel()` — renderer ported from frontend (same section structure as Phase 1)
+- `buildExperimentPrompt()` — constructs Chinese-language structured prompt for the AI
+- `generateAndSaveReport(experimentId, userId)` — full pipeline, direct DB access via `pool`
+- `saveReportHtml(experimentId, userId, html)` — manual save, sets source="manual"
+- `clearReport(experimentId, userId)` — nulls all report fields
+
+### Go API changes
+
+- Migration adds 4 columns (auto-applied via goose on startup)
+- `domain/experiment.go` — ExperimentRecord gains `ReportGeneratedAt`, `ReportSource`, `ReportUpdatedAt`, `ReportModelJson`
+- `dto/experiment_dto.go` — ExperimentResponse includes the 3 new response fields
+- `repository/experiment_repo_pgx.go` — `expColumns` constant and `scanExperiment` extended (fields appended at end)
+- No new Go routes needed — report save/clear is handled by Express via direct DB pool
+
+### Frontend changes
+
+| File | Change |
+|---|---|
+| `types/experiment.ts` | Added `reportSource?`, `reportGeneratedAt?`, `reportUpdatedAt?` to ExperimentRecord |
+| `api/experiments.ts` | Wire type updated; `generateReport(id)`, `saveReport(id, html)`, `clearExperimentReport(id)` added |
+| `api/memberSciNotes.ts` | MemberExperimentApiResponse updated to include 3 new report fields |
+| `hooks/useExperimentReport.ts` | Removed `experimentType`/`objective` params; uses `generateReport(id)` for manual trigger; `updateReport` debounces `saveReport` by 2s; `clearReport` calls `clearExperimentReport` |
+| `contexts/WorkbenchContext.tsx` | Auto-trigger in `setModuleStatus` now calls `generateReport(currentRecordId)` instead of local stub |
+
+### AI provider notes
+
+The service uses `buildProviderConfig()` from `ai-client.service.ts`:
+- Primary: `AI_PROVIDER=qianwen` → requires `DASHSCOPE_API_KEY`
+- Fallback: set `AI_PROVIDER=openai` → uses `OPENAI_API_KEY`
+- No key → graceful stub fallback (rule-based report without AI text for findings/conclusion)
 
 ---
 

@@ -56,6 +56,9 @@ interface MemberExperimentApiResponse {
   tags:               string[];
   editorContent:      string;
   reportHtml:         string | null;
+  reportSource:       string | null;
+  reportGeneratedAt:  string | null;
+  reportUpdatedAt:    string | null;
   currentModules:     OntologyModule[] | null;
   inheritedVersionId: string | null;
   isDeleted:          boolean;

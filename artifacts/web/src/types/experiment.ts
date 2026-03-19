@@ -100,10 +100,32 @@ export interface ExperimentRecord {
   updatedAt?: string;
   /**
    * AI-generated experiment report HTML.
-   * Persisted to sessionStorage alongside the rest of the record.
+   * Phase 1: locally generated (stub).
+   * Phase 2+: server-persisted via POST /api/experiments/:id/report/generate.
    * Undefined until all five modules are confirmed and the report is generated.
    */
   reportHtml?: string;
+
+  /**
+   * Who/what produced the current reportHtml.
+   * "stub"   → Phase-1 local rule-based generation (legacy, may exist in DB)
+   * "ai"     → Phase-2 server-side AI generation
+   * "manual" → user edited and explicitly saved the report
+   * undefined → no report exists yet
+   */
+  reportSource?: string;
+
+  /**
+   * ISO timestamp when the report was first generated (generate endpoint sets this).
+   * Undefined until first generation.
+   */
+  reportGeneratedAt?: string;
+
+  /**
+   * ISO timestamp of the last save (generation or manual edit).
+   * Undefined until first report save.
+   */
+  reportUpdatedAt?: string;
 
   // ---------------------------------------------------------------------------
   // Inheritance-chain fields (server-assigned; read-only in frontend)

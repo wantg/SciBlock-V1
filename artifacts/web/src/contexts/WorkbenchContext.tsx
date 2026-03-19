@@ -19,7 +19,7 @@ import type {
 import type { OntologyModuleStructuredData } from "@/types/ontologyModules";
 import type { ReportStatus } from "@/types/report";
 import { FLOW_TRIGGER_KEYS, ALL_MODULE_KEYS } from "@/types/workbench";
-import { generateExperimentReport } from "@/api/report";
+import { generateReport } from "@/api/experiments";
 import {
   DEFAULT_ONTOLOGY_VERSION,
   SEED_ONTOLOGY_VERSIONS,
@@ -708,15 +708,10 @@ export function WorkbenchProvider({
         (k) => updatedModules.find((m) => m.key === k)?.status === "confirmed",
       );
       if (reportAllConfirmed && !rec.reportHtml && !isGeneratingReport) {
-        // Trigger with updated modules (not the stale closure value)
+        // Auto-trigger: call backend AI generation for the current experiment
         setIsGeneratingReport(true);
         setReportError(false);
-        generateExperimentReport({
-          title: rec.title,
-          experimentType,
-          objective,
-          modules: updatedModules,
-        })
+        generateReport(currentRecordId)
           .then((html) => {
             setRecords((prev2) =>
               prev2.map((r) =>
@@ -766,8 +761,6 @@ export function WorkbenchProvider({
     updateReport,
     clearReport,
   } = useExperimentReport({
-    experimentType,
-    objective,
     currentRecord,
     currentRecordId,
     isGenerating:       isGeneratingReport,

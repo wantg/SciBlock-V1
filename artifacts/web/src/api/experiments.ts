@@ -22,6 +22,10 @@ interface ExperimentApiResponse {
   tags: string[];
   editorContent: string;
   reportHtml: string | null;
+  // Phase 2 report metadata
+  reportSource: string | null;
+  reportGeneratedAt: string | null;
+  reportUpdatedAt: string | null;
   currentModules: OntologyModule[] | null;
   inheritedVersionId: string | null;
   isDeleted: boolean;
@@ -87,6 +91,9 @@ export function apiResponseToRecord(api: ExperimentApiResponse): ExperimentRecor
     createdAt: api.createdAt,
     updatedAt: api.updatedAt,
     reportHtml: api.reportHtml ?? undefined,
+    reportSource: api.reportSource ?? undefined,
+    reportGeneratedAt: api.reportGeneratedAt ?? undefined,
+    reportUpdatedAt: api.reportUpdatedAt ?? undefined,
     // Inheritance-chain fields
     sequenceNumber: api.sequenceNumber ?? 1,
     confirmationState: api.confirmationState ?? "draft",
@@ -172,4 +179,50 @@ export async function restoreExperiment(id: string): Promise<ExperimentRecord> {
     { method: "PATCH" },
   );
   return apiResponseToRecord(resp);
+}
+
+// ---------------------------------------------------------------------------
+// Report API (Phase 2)
+// ---------------------------------------------------------------------------
+
+interface GenerateReportResponse {
+  html: string;
+  source: "ai" | "stub";
+  generatedAt: string;
+}
+
+/**
+ * Trigger AI-powered report generation for an experiment.
+ * The backend reads experiment + scinote data from the DB, calls the AI,
+ * persists the result, and returns the rendered HTML.
+ *
+ * @returns The generated HTML string (already persisted server-side).
+ */
+export async function generateReport(experimentId: string): Promise<string> {
+  const resp = await apiFetch<GenerateReportResponse>(
+    `/experiments/${experimentId}/report/generate`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+  return resp.html;
+}
+
+/**
+ * Persist a manually edited report HTML.
+ * Sets report_source = 'manual' on the server.
+ */
+export async function saveReport(experimentId: string, html: string): Promise<void> {
+  await apiFetch<{ ok: boolean }>(
+    `/experiments/${experimentId}/report`,
+    { method: "PUT", body: JSON.stringify({ html }) },
+  );
+}
+
+/**
+ * Clear all report fields, resetting the experiment to idle report status.
+ */
+export async function clearExperimentReport(experimentId: string): Promise<void> {
+  await apiFetch<unknown>(
+    `/experiments/${experimentId}/report`,
+    { method: "DELETE" },
+  );
 }

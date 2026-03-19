@@ -1,0 +1,163 @@
+Phase 1 验收结论明确：当前右侧实验报告属于“报告式摘要视图”，不是完整实验报告。下一阶段不要继续打磨 system/preparation/operation 这些摘要区块，而是进入真正有产品价值的 Phase 2：
+
+目标：
+1. 让实验报告进入后端持久化，不再只存在前端内存/sessionStorage
+2. 引入真实 AI 生成，但只生成最有价值的核心区块，不要让 AI 重写整篇报告
+3. 保持当前 Phase 1 已完成的 report model / mapper / renderer 分层，不要回退到 UI 里拼内容
+
+请按下面要求实施。
+
+一、Phase 2 总体目标
+
+把当前实验报告从：
+“前端本地生成、无持久化、分析/结论为空占位”
+升级为：
+“可持久化、可恢复、AI 生成核心分析区块的实验报告”
+
+这次要完成：
+- 后端持久化
+- 实验报告生成接口
+- AI 生成实验概述 / 结果分析 / 初步结论
+- 前端与后端打通
+- 保持现有编辑模式
+
+这次不要做：
+- 不要让 AI 重写整篇报告
+- 不要破坏现有 report model / mapper / renderer 分层
+- 不要把逻辑重新塞回超长 context 文件
+
+二、数据库与后端持久化
+
+请在 experiment_records（或当前实验记录表）中增加实验报告相关字段，至少包括：
+
+- report_html TEXT
+- report_generated_at TIMESTAMPTZ
+- report_source VARCHAR / TEXT   （建议值：stub / ai / manual）
+- report_updated_at TIMESTAMPTZ
+
+如你判断有必要，也可以增加：
+- report_model_json JSONB
+用于保存生成时的 report model 快照，便于后续调试和版本演进
+
+请同时完成 migration，并保证可重复执行安全。
+
+三、后端 API
+
+请新增/完善以下接口：
+
+1. GET /api/experiments/:id
+- 返回实验记录时带上 report 相关字段
+
+2. PUT /api/experiments/:id/report
+- 用于用户手动编辑后保存 report_html
+- 同时更新 report_source = "manual"（或保留原 source 并增加 edited 标记，由你给出更合理方案）
+
+3. POST /api/experiments/:id/report/generate
+职责：
+- 读取该实验的结构化记录数据
+- 生成 report model
+- 调用真实 AI
+- 只生成以下 3 个区块：
+  - 实验概述
+  - 结果分析
+  - 初步结论
+- 再与现有规则生成区块合并，渲染完整 report_html
+- 持久化保存 report_html、report_generated_at、report_source
+
+4. DELETE /api/experiments/:id/report
+- 清空实验报告，恢复未生成状态
+
+四、AI 生成范围控制
+
+这一阶段不要把整篇报告都交给 AI。
+
+请采用“规则生成 + AI 生成”混合方案：
+
+A. 规则生成 / 模板生成，继续沿用现有 mapper 结果：
+- 标题
+- 实验目的
+- 实验系统与研究对象
+- 实验准备
+- 实验过程
+- 测量与数据获取
+
+B. AI 生成，仅限这 3 个区块：
+- 实验概述
+- 结果分析
+- 初步结论
+
+原因：
+- 保持报告结构稳定
+- 避免 AI 幻觉重写原始实验事实
+- 让 AI 聚焦真正高价值内容
+
+五、Prompt 设计要求
+
+请不要让 AI 直接读取原始 modules 然后自由发挥写整篇报告。
+
+请基于当前已有的 report model / mapper 设计 prompt 输入，至少包含：
+- title
+- experimentType
+- objective
+- systemSummary
+- preparationSummary
+- procedureSummary
+- measurementDataSummary
+
+然后要求模型只返回结构化结果，例如：
+- summary
+- analysis
+- conclusion
+
+不要返回整篇 HTML。
+后端拿到这三个文本区块后，再交给 renderer 组装完整 HTML。
+
+也就是说链路应该是：
+
+experiment record raw data
+→ report mapper
+→ report model
+→ AI 只生成 summary / analysis / conclusion
+→ merge into report model
+→ renderer
+→ report_html
+→ save to DB
+
+六、前端改造要求
+
+请保持现有 ReportSection / useExperimentReport 的对外使用方式尽量稳定，但内部实现改为真实后端调用。
+
+需要完成：
+
+1. 页面加载时，如果实验已有 report_html，直接显示，不再丢失
+2. 点击“立即生成”时，调用后端 generate 接口
+3. 编辑报告后，保存到 PUT /report
+4. 清空报告时，调用 DELETE /report
+5. reportStatus 需要正确区分：
+- idle
+- generating
+- ready
+- error
+
+七、自动触发逻辑
+
+当前自动触发嵌在 WorkbenchContext 的 setModuleStatus 里，这一层耦合太深。
+
+请这次顺手一起收口：
+- 把自动生成报告的触发逻辑从 setModuleStatus 内联副作用中拆出去
+- 抽到独立 hook / effect / service 层
+- 保证 WorkbenchContext 主要负责状态，不要继续堆业务副作用
+
+如果你判断这一步改动风险过大，也请明确说明，并给出过渡方案。
+
+八、交付要求
+
+完成后请给我：
+
+1. 新增/修改了哪些数据库字段和 migration
+2. 新增/修改了哪些后端接口
+3. AI 生成的 3 个区块分别使用了什么输入数据
+4. 当前 report model 是否有变化
+5. 前端如何从“本地 stub”切换成“后端持久化 + AI 生成”
+6. 自动触发逻辑是否已经从 WorkbenchContext 中拆出
+7. 用一句话说明：现在实验报告相较于 Phase 1，产品能力具体提升了什么
