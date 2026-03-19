@@ -80,3 +80,43 @@ The project employs a pnpm monorepo structure, separating deployable services (`
 -   **goose**: Database migration tool for Go.
 -   **http-proxy-middleware**: Node.js middleware for proxying requests from Express to the Go API.
 -   **Aliyun DashScope / OpenAI**: AI chat providers integrated for AI functionalities.
+
+# Feature Milestones
+
+## 实验记录 ↔ 周报联动 — 第一阶段（已完成）
+
+**完成时间**: 2026-03-19
+
+### 数据层新增
+- `weekly_report_experiment_links` 表：`(id, report_id → weekly_reports.id CASCADE, experiment_record_id, created_at)`，`UNIQUE(report_id, experiment_record_id)`
+- `weekly_reports.links_last_saved_at TIMESTAMPTZ`：学生最后一次主动保存 links 的时间戳，用于区分"从未管理过"和"显式清空"两种语义
+
+### API 新增
+- `PUT /reports/:id/links`：全量替换关联实验记录，仅 draft/needs_revision 状态可用；调用时同步更新 `links_last_saved_at`；验证实验记录归属权
+- `GET /reports/:id/links`：返回关联实验记录详情（title、sciNoteTitle、status、purposeInput、createdAt），学生本人与导师均可访问
+
+### 学生端新增
+- 位置 1 — 生成向导 Step 2：时间段内候选实验列表，默认全部未勾选，"全选/取消"快捷按钮，至少选 1 条才可继续；Step 3 在触发生成前先保存 links
+- 位置 2 — ReportWorkPanel：常驻"关联实验记录"区块，draft/needs_revision 状态下显示"管理关联"按钮，弹出模态框可增删关联实验记录（候选来自 dateRangeStart–dateRangeEnd）
+
+### 导师端新增
+- ReportCard 展开后懒加载关联实验记录列表（无关联则不显示该区块）
+- 点击任意一条实验记录行 → 右侧 Sheet 面板展开，展示实验标题、所属 SciNote、状态、创建日期、实验目的全文（真正的 read-only drill-down，非堆文字）
+
+### AI 生成逻辑变化
+- 优先级 1：若该周报 `weekly_report_experiment_links` 中有 links → 用 links 指定的实验
+- 优先级 2（新规则）：若 `links_last_saved_at IS NOT NULL` 且 links 为空 → 返回空集，不注入日期范围素材（尊重学生的显式决策）
+- 优先级 3（旧 fallback）：若 `links_last_saved_at IS NULL`（历史旧周报，从未经历链接管理流程）→ 按 dateRangeStart–dateRangeEnd 日期范围查询实验
+
+---
+
+## 实验记录 ↔ 周报联动 — 第二阶段候选优化项（待排期）
+
+以下为候选项，**尚未实现**，供后续排期参考：
+
+1. **AI 提示词针对关联实验深化**：当前 AI 只是把 links 实验的内容拼入 prompt，未来可加强结构化（如按实验目的/结果分段、标注实验序号、强调继承链关系）
+2. **导师 drill-down 展示传承链信息**：当前 Sheet 面板只显示单条实验基本信息，可补充：父实验/子实验链路、确认状态、derived_from_record_id 指向
+3. **实验记录反向引用：被哪些周报引用**：在实验工作台或实验卡片中增加"已被 N 份周报引用"角标，点击可查看引用的周报列表
+4. **候选时间语义优化**：当前候选池按 `experiment_records.created_at` 过滤，语义上是"创建时间"而非"实验进行时间"；引入 `experiment_date` 或 `record_date` 字段作为更准确的候选过滤依据
+5. **批量 links 预览**：生成向导 Step 3（确认页）展示所选实验的摘要快照（标题、目的），让学生在生成前再确认一遍
+6. **links 修改历史**：记录 links 的增删操作日志，供导师查看学生是否在提交前反复修改关联实验记录
