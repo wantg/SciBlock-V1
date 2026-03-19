@@ -129,6 +129,32 @@ The following improvements are scoped but deferred:
 
 ---
 
+# Development Environment Rules
+
+## API Client: Never Hardcode localhost in the Frontend
+
+**Root cause of 2026-03-19 login outage**: `client.ts` had a DEV-mode fallback of `http://localhost:8080/api`. In a Replit / any HTTPS-hosted dev environment the browser loads pages over HTTPS. A fetch to a plain `http://localhost:*` URL is **Mixed Content** and is silently blocked by the browser before it reaches the server. The result is a `TypeError` (no HTTP response), not an `ApiError`, so any generic catch clause that only handles `ApiError` will swallow the real cause.
+
+**Rules going forward**:
+
+1. **Frontend API clients use relative paths (`/api/...`) in all environments.** The Vite dev server proxy (`server.proxy` in `vite.config.ts`) forwards `/api` → `localhost:8080`. This keeps the browser on the same HTTPS origin, eliminating Mixed Content entirely.
+
+2. **`VITE_API_BASE_URL` is the only override mechanism.** Set it when you need to point a local browser at a remote/staging backend. Never hard-code a port in application code.
+
+3. **Backend server-to-server calls may use `localhost`.** `GO_API_URL` (Express → Go, defaults `localhost:8082`) and `LOCAL_AI_BASE_URL` (Ollama fallback, `localhost:11434`) are fine — they run inside the container and are protected by environment variable overrides.
+
+4. **`catch` blocks in critical flows (login, form submission) must distinguish error types.** A bare `catch` that shows a generic "Something went wrong" hides the real failure. At minimum: show `ApiError.message` for server errors and `TypeError.message` in DEV for network-layer failures. Production can stay generic.
+
+## Vite Dev Proxy
+
+`artifacts/web/vite.config.ts` currently proxies:
+
+```
+/api  →  http://localhost:8080  (Express API — auth, reports, team, messages)
+```
+
+The Go API (`localhost:8082`) is reached exclusively through Express (Express proxies scinote/experiment calls to Go internally). No second proxy entry is needed.
+
 # External Dependencies
 
 -   **PostgreSQL**: Primary relational database.
