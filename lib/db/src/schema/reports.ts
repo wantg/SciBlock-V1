@@ -67,3 +67,38 @@ export const reportExperimentLinksTable = pgTable(
 
 export type ReportExperimentLink = typeof reportExperimentLinksTable.$inferSelect;
 export type InsertReportExperimentLink = typeof reportExperimentLinksTable.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// weekly_report_selected_dates — 周报 ↔ 具体日期 显式关联
+//
+// Stores the discrete, student-selected dates for a weekly report.
+// These dates define the candidate pool for experiment selection —
+// experiments created on any selected date are surfaced as candidates.
+//
+// Design notes:
+//  - report_id CASCADE FK: deleting a report cleans up its dates.
+//  - selected_date stored as text "YYYY-MM-DD" (consistent with all other
+//    date columns in the schema; avoids TZ ambiguity from timestamptz).
+//  - UNIQUE(report_id, selected_date) prevents duplicates.
+//  - datesLastSavedAt on weekly_reports tracks whether a report has ever
+//    gone through the new multi-date flow (NULL = old date-range report).
+// ---------------------------------------------------------------------------
+
+export const reportSelectedDatesTable = pgTable(
+  "weekly_report_selected_dates",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    reportId: text("report_id")
+      .notNull()
+      .references(() => weeklyReportsTable.id, { onDelete: "cascade" }),
+    /** Concrete date string, YYYY-MM-DD (no TZ component). */
+    selectedDate: text("selected_date").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqDate: unique("uq_report_selected_date").on(t.reportId, t.selectedDate),
+  }),
+);
+
+export type ReportSelectedDate = typeof reportSelectedDatesTable.$inferSelect;
+export type InsertReportSelectedDate = typeof reportSelectedDatesTable.$inferInsert;

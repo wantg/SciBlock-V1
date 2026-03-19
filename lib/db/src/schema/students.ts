@@ -99,6 +99,12 @@ export const weeklyReportsTable = pgTable("weekly_reports", {
    * NOT NULL → 学生已显式管理过 links（哪怕保存为空），AI 生成严格按 links，不 fallback。
    */
   linksLastSavedAt: timestamp("links_last_saved_at"),
+  /**
+   * 学生最后一次主动保存 selected_dates 的时间。
+   * NULL  → 旧报告，从未使用多日期选择模型。
+   * NOT NULL → 新报告，日期集合已由学生显式确定（哪怕选了空集也不会 NULL）。
+   */
+  datesLastSavedAt: timestamp("dates_last_saved_at"),
 });
 
 export type WeeklyReport = typeof weeklyReportsTable.$inferSelect;

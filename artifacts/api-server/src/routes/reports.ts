@@ -1,20 +1,24 @@
 /**
  * 周报路由
  *
- * GET    /reports                     — 按角色分流（student 自己 / instructor 可筛选）
- * GET    /reports/team                — 导师查看全团队周报（按周筛选）
- * GET    /reports/preview             — 预览某时间段内命中的实验（学生自用）
- * GET    /reports/:id                 — 查看单条周报
- * GET    /reports/:id/links           — 查看周报关联实验记录（学生+导师）
- * POST   /reports                     — 创建周报
- * POST   /reports/:id/generate        — 触发汇总生成（规则化，异步写入 ai_content_json）
- * POST   /reports/:id/submit          — 提交周报
- * PUT    /reports/:id/links           — 全量替换关联实验记录（draft/needs_revision 状态有效）
- * PATCH  /reports/:id                 — 更新周报内容 / 状态
- * DELETE /reports/:id                 — 删除周报
- * GET    /reports/:id/comments        — 查看评论
- * POST   /reports/:id/review          — 导师批阅周报（状态更新 + 消息通知学生）
- * POST   /reports/:id/comments        — 添加评论（导师专属；写入后发消息通知学生）
+ * GET    /reports                               — 按角色分流（student 自己 / instructor 可筛选）
+ * GET    /reports/team                         — 导师查看全团队周报（按周筛选）
+ * GET    /reports/preview                      — 【已废弃，保留兼容】按日期范围预览实验
+ * GET    /reports/experiment-dates             — 当前学生某月内有实验的日期列表（日历 dot 用）
+ * GET    /reports/candidate-experiments        — 按选定日期集返回候选实验（按日期分组）
+ * GET    /reports/:id                          — 查看单条周报
+ * GET    /reports/:id/dates                    — 查看周报已选日期列表
+ * GET    /reports/:id/links                    — 查看周报关联实验记录（学生+导师）
+ * POST   /reports                             — 创建周报
+ * POST   /reports/:id/generate               — 触发汇总生成（异步写入 ai_content_json）
+ * POST   /reports/:id/submit                 — 提交周报
+ * PUT    /reports/:id/dates                  — 全量替换已选日期（draft/needs_revision 状态有效）
+ * PUT    /reports/:id/links                  — 全量替换关联实验记录（draft/needs_revision 状态有效）
+ * PATCH  /reports/:id                        — 更新周报内容 / 状态
+ * DELETE /reports/:id                        — 删除周报
+ * GET    /reports/:id/comments               — 查看评论
+ * POST   /reports/:id/review                 — 导师批阅周报（状态更新 + 消息通知学生）
+ * POST   /reports/:id/comments               — 添加评论（导师专属；写入后发消息通知学生）
  *
  * 所有路由均受 requireAuth 保护（在 routes/index.ts 统一注册）。
  * 用户身份从 res.locals.userId / role 读取。
@@ -31,6 +35,7 @@ import {
   weeklyReportsTable,
   reportCommentsTable,
   reportExperimentLinksTable,
+  reportSelectedDatesTable,
   studentsTable,
   messagesTable,
 } from "@workspace/db/schema";
@@ -239,6 +244,172 @@ router.get("/preview", async (req, res) => {
   } catch (err) {
     console.error("[reports] GET /preview error:", err);
     res.status(500).json({ message: "Failed to fetch preview" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /reports/experiment-dates?year=YYYY&month=M
+//
+// Returns the list of dates (YYYY-MM-DD) in the given month on which the
+// student has at least one non-deleted experiment record.
+// Used by the wizard calendar to render dot indicators on busy days.
+//
+// Access: student only (reads own experiments via JWT).
+// ---------------------------------------------------------------------------
+
+router.get("/experiment-dates", async (req, res) => {
+  if (res.locals.role !== "student") {
+    res.status(403).json({ error: "forbidden", message: "Student only" });
+    return;
+  }
+
+  const userId = res.locals.userId as string;
+  const { year, month } = req.query as { year?: string; month?: string };
+
+  if (!year || !month) {
+    res.status(400).json({ message: "year and month query params are required" });
+    return;
+  }
+
+  const y = parseInt(year, 10);
+  const m = parseInt(month, 10);
+  if (isNaN(y) || isNaN(m) || m < 1 || m > 12) {
+    res.status(400).json({ message: "Invalid year or month" });
+    return;
+  }
+
+  // Build month start/end (server-side UTC; consistent with created_at storage)
+  const monthStart = `${y}-${String(m).padStart(2, "0")}-01`;
+  const nextMonth  = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+
+  try {
+    const result = await pool.query<{ day: string }>(
+      `SELECT DISTINCT TO_CHAR(e.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day
+       FROM experiment_records e
+       JOIN scinotes s ON s.id = e.sci_note_id
+       WHERE s.user_id = $1
+         AND e.is_deleted = false
+         AND e.created_at >= $2::date
+         AND e.created_at <  $3::date
+       ORDER BY day`,
+      [userId, monthStart, nextMonth],
+    );
+
+    res.json({ year: y, month: m, dates: result.rows.map((r) => r.day) });
+  } catch (err) {
+    console.error("[reports] GET /experiment-dates error:", err);
+    res.status(500).json({ message: "Failed to fetch experiment dates" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /reports/candidate-experiments?dates[]=YYYY-MM-DD&dates[]=YYYY-MM-DD…
+//
+// Returns candidate experiment records grouped by the requested dates.
+// Only experiments whose created_at::date falls on a requested date are
+// returned. The result is sorted by date ASC then experiment created_at ASC.
+//
+// Response shape:
+//   {
+//     dates: string[],           // requested dates, sorted
+//     groups: Array<{
+//       date: string,
+//       experiments: Array<{ id, title, sciNoteId, sciNoteTitle, status, purposeInput, createdAt }>
+//     }>,
+//     totalCount: number
+//   }
+//
+// Access: student only.
+// ---------------------------------------------------------------------------
+
+interface CandidateExperimentRow {
+  id: string;
+  sci_note_id: string;
+  sci_note_title: string;
+  title: string;
+  experiment_status: string;
+  purpose_input: string | null;
+  created_at: Date;
+  day: string;
+}
+
+router.get("/candidate-experiments", async (req, res) => {
+  if (res.locals.role !== "student") {
+    res.status(403).json({ error: "forbidden", message: "Student only" });
+    return;
+  }
+
+  const userId = res.locals.userId as string;
+
+  // Accept dates as ?dates[]=... or ?dates=...&dates=... (Express handles both)
+  let rawDates = req.query["dates"];
+  if (!rawDates) rawDates = req.query["dates[]"];
+
+  const datesArr: string[] = Array.isArray(rawDates)
+    ? (rawDates as string[])
+    : typeof rawDates === "string"
+    ? [rawDates]
+    : [];
+
+  // Validate format YYYY-MM-DD
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  const validDates = datesArr.filter((d) => datePattern.test(d));
+
+  if (validDates.length === 0) {
+    res.json({ dates: [], groups: [], totalCount: 0 });
+    return;
+  }
+
+  // Deduplicate and sort
+  const uniqueDates = [...new Set(validDates)].sort();
+
+  try {
+    const placeholders = uniqueDates.map((_, i) => `$${i + 2}`).join(", ");
+    const result = await pool.query<CandidateExperimentRow>(
+      `SELECT
+         e.id,
+         e.sci_note_id,
+         s.title AS sci_note_title,
+         COALESCE(e.title, '未命名实验') AS title,
+         e.experiment_status,
+         e.purpose_input,
+         e.created_at,
+         TO_CHAR(e.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day
+       FROM experiment_records e
+       JOIN scinotes s ON s.id = e.sci_note_id
+       WHERE s.user_id = $1
+         AND e.is_deleted = false
+         AND TO_CHAR(e.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') IN (${placeholders})
+       ORDER BY day ASC, e.created_at ASC`,
+      [userId, ...uniqueDates],
+    );
+
+    // Group by date
+    const groupMap = new Map<string, typeof result.rows>();
+    for (const date of uniqueDates) {
+      groupMap.set(date, []);
+    }
+    for (const row of result.rows) {
+      groupMap.get(row.day)?.push(row);
+    }
+
+    const groups = uniqueDates.map((date) => ({
+      date,
+      experiments: (groupMap.get(date) ?? []).map((e) => ({
+        id:            e.id,
+        title:         e.title,
+        sciNoteId:     e.sci_note_id,
+        sciNoteTitle:  e.sci_note_title,
+        status:        e.experiment_status,
+        purposeInput:  e.purpose_input,
+        createdAt:     e.created_at,
+      })),
+    }));
+
+    res.json({ dates: uniqueDates, groups, totalCount: result.rows.length });
+  } catch (err) {
+    console.error("[reports] GET /candidate-experiments error:", err);
+    res.status(500).json({ message: "Failed to fetch candidate experiments" });
   }
 });
 
@@ -604,6 +775,139 @@ router.delete("/:id", async (req, res) => {
   } catch (err) {
     console.error("[reports] DELETE /:id error:", err);
     res.status(500).json({ message: "Failed to delete report" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /reports/:id/dates
+//
+// Returns the list of explicitly selected dates for this report, sorted ASC.
+// Access: student (own) or instructor.
+// ---------------------------------------------------------------------------
+
+router.get("/:id/dates", async (req, res) => {
+  const { id } = req.params;
+  const callerId   = res.locals.userId as string;
+  const callerRole = res.locals.role   as string;
+
+  try {
+    const [report] = await db
+      .select({ id: weeklyReportsTable.id, studentId: weeklyReportsTable.studentId })
+      .from(weeklyReportsTable)
+      .where(eq(weeklyReportsTable.id, id))
+      .limit(1);
+
+    if (!report) { res.status(404).json({ message: "Report not found" }); return; }
+
+    if (callerRole !== "instructor") {
+      const student = await getStudentByUserId(callerId);
+      if (!student || student.id !== report.studentId) {
+        res.status(403).json({ error: "forbidden", message: "Access denied" });
+        return;
+      }
+    }
+
+    const rows = await db
+      .select({ selectedDate: reportSelectedDatesTable.selectedDate })
+      .from(reportSelectedDatesTable)
+      .where(eq(reportSelectedDatesTable.reportId, id));
+
+    const dates = rows.map((r) => r.selectedDate).sort();
+    res.json({ reportId: id, dates });
+  } catch (err) {
+    console.error("[reports] GET /:id/dates error:", err);
+    res.status(500).json({ message: "Failed to fetch report dates" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PUT /reports/:id/dates
+//
+// Replaces the full set of selected dates for this report.
+// Body: { dates: string[] }  — each element YYYY-MM-DD
+//
+// Rules:
+//   - Student only, own report, draft or needs_revision status.
+//   - At least 1 date is required (validated here — wizard enforces this too).
+//   - Stamps datesLastSavedAt on weekly_reports.
+// ---------------------------------------------------------------------------
+
+router.put("/:id/dates", async (req, res) => {
+  const role = res.locals.role as string;
+  const id   = req.params["id"] as string;
+
+  if (role !== "student") {
+    res.status(403).json({ error: "forbidden", message: "Only students can update report dates" });
+    return;
+  }
+
+  const student = await resolveStudentOrRespond(res.locals.userId, res, "PUT /:id/dates");
+  if (!student) return;
+
+  const [report] = await db
+    .select()
+    .from(weeklyReportsTable)
+    .where(eq(weeklyReportsTable.id, id))
+    .limit(1);
+
+  if (!report) { res.status(404).json({ message: "Report not found" }); return; }
+
+  if (report.studentId !== student.id) {
+    res.status(403).json({ error: "forbidden", message: "You can only update dates for your own reports" });
+    return;
+  }
+
+  const editableStatuses = ["draft", "needs_revision"];
+  if (!editableStatuses.includes(report.status)) {
+    res.status(422).json({
+      error: "not_editable",
+      message: "Dates can only be updated while the report is in draft or needs_revision status",
+    });
+    return;
+  }
+
+  const { dates } = req.body as { dates: unknown };
+
+  if (!Array.isArray(dates)) {
+    res.status(400).json({ message: "dates must be an array" });
+    return;
+  }
+
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  const invalid = (dates as unknown[]).filter((d) => typeof d !== "string" || !datePattern.test(d as string));
+  if (invalid.length > 0) {
+    res.status(400).json({ message: "All dates must be strings in YYYY-MM-DD format" });
+    return;
+  }
+
+  if (dates.length < 1) {
+    res.status(422).json({ error: "too_few_dates", message: "At least 1 date is required" });
+    return;
+  }
+
+  const uniqueDates = [...new Set(dates as string[])];
+
+  try {
+    await db.transaction(async (tx) => {
+      // Full replace
+      await tx
+        .delete(reportSelectedDatesTable)
+        .where(eq(reportSelectedDatesTable.reportId, id));
+
+      await tx.insert(reportSelectedDatesTable).values(
+        uniqueDates.map((d) => ({ reportId: id, selectedDate: d })),
+      );
+
+      await tx
+        .update(weeklyReportsTable)
+        .set({ datesLastSavedAt: new Date(), updatedAt: new Date() })
+        .where(eq(weeklyReportsTable.id, id));
+    });
+
+    res.json({ reportId: id, dates: uniqueDates.sort(), count: uniqueDates.length });
+  } catch (err) {
+    console.error("[reports] PUT /:id/dates error:", err);
+    res.status(500).json({ message: "Failed to update report dates" });
   }
 });
 

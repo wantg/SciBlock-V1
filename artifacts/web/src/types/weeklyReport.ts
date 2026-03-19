@@ -94,7 +94,7 @@ export interface AiReportContent {
 }
 
 // ---------------------------------------------------------------------------
-// Preview response (GET /reports/preview)
+// Preview response (GET /reports/preview) — DEPRECATED, kept for compat
 // ---------------------------------------------------------------------------
 
 export interface ReportPreviewExperiment {
@@ -113,6 +113,47 @@ export interface ReportPreviewResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Multi-date model — new date selection flow
+// ---------------------------------------------------------------------------
+
+/** Response for GET /reports/experiment-dates — calendar dot indicators */
+export interface ExperimentDatesResponse {
+  year: number;
+  month: number;
+  dates: string[]; // YYYY-MM-DD strings for days with experiments
+}
+
+/** A single candidate experiment within a date group */
+export interface CandidateExperiment {
+  id: string;
+  title: string;
+  sciNoteId: string;
+  sciNoteTitle: string;
+  status: string;
+  purposeInput: string | null;
+  createdAt: string;
+}
+
+/** One date group in the candidate-experiments response */
+export interface CandidateGroup {
+  date: string;             // YYYY-MM-DD
+  experiments: CandidateExperiment[];
+}
+
+/** Response for GET /reports/candidate-experiments */
+export interface CandidateExperimentsResponse {
+  dates: string[];
+  groups: CandidateGroup[];
+  totalCount: number;
+}
+
+/** Response for GET /reports/:id/dates */
+export interface ReportDatesResponse {
+  reportId: string;
+  dates: string[]; // sorted YYYY-MM-DD
+}
+
+// ---------------------------------------------------------------------------
 // WeeklyReport entity (as returned by the API)
 // ---------------------------------------------------------------------------
 
@@ -120,8 +161,8 @@ export interface WeeklyReport {
   id: string;
   studentId: string;
   title: string;
-  weekStart: string;           // YYYY-MM-DD (Monday)
-  weekEnd: string | null;      // YYYY-MM-DD (Sunday)
+  weekStart: string;           // YYYY-MM-DD — display/ordering only; not used for logic in new reports
+  weekEnd: string | null;      // YYYY-MM-DD — display only
   status: WeeklyReportStatus;
   content: string;             // backward-compat plain text
   contentJson: string | null;  // JSON-stringified WeeklyReportContent
@@ -132,9 +173,15 @@ export interface WeeklyReport {
   // AI generation fields
   generationStatus: GenerationStatus;
   aiContentJson: string | null;
+  /** @deprecated Kept for old-report fallback only. New reports use selected_dates. */
   dateRangeStart: string | null;
+  /** @deprecated Kept for old-report fallback only. New reports use selected_dates. */
   dateRangeEnd: string | null;
   experimentCount: number;
+  /** Timestamp of the last PUT /dates call. NULL = old date-range report. */
+  datesLastSavedAt: string | null;
+  /** Timestamp of the last PUT /links call. NULL = links never managed. */
+  linksLastSavedAt: string | null;
 }
 
 export interface WeeklyReportComment {

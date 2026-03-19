@@ -8,6 +8,9 @@ import type {
   ReportPreviewResponse,
   ReportLinksResponse,
   ReviewReportPayload,
+  ExperimentDatesResponse,
+  CandidateExperimentsResponse,
+  ReportDatesResponse,
 } from "@/types/weeklyReport";
 
 // ---------------------------------------------------------------------------
@@ -70,6 +73,51 @@ export async function pollUntilGenerated(
     await new Promise((res) => setTimeout(res, intervalMs));
   }
   throw new Error("生成超时，请稍后刷新页面查看结果。");
+}
+
+// ---------------------------------------------------------------------------
+// Multi-date selection — GET /reports/experiment-dates  |  GET /reports/candidate-experiments
+//                        GET /reports/:id/dates         |  PUT /reports/:id/dates
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns which days in a given month have ≥1 experiment for the current user.
+ * Used by the wizard calendar to render dot indicators.
+ */
+export function fetchExperimentDates(year: number, month: number): Promise<ExperimentDatesResponse> {
+  return apiFetch<ExperimentDatesResponse>(
+    `/reports/experiment-dates?year=${year}&month=${month}`,
+  );
+}
+
+/**
+ * Returns candidate experiments grouped by date for the given date list.
+ * Used in Step 2 of the wizard before a report ID exists.
+ */
+export function fetchCandidateExperiments(dates: string[]): Promise<CandidateExperimentsResponse> {
+  const qs = dates.map((d) => `dates[]=${encodeURIComponent(d)}`).join("&");
+  return apiFetch<CandidateExperimentsResponse>(`/reports/candidate-experiments?${qs}`);
+}
+
+/**
+ * Returns the sorted list of explicitly selected dates for a report.
+ */
+export function fetchReportDates(reportId: string): Promise<ReportDatesResponse> {
+  return apiFetch<ReportDatesResponse>(`/reports/${reportId}/dates`);
+}
+
+/**
+ * Replaces the full set of selected dates for a report (draft/needs_revision only).
+ * Stamps datesLastSavedAt on the report.
+ */
+export function saveReportDates(
+  reportId: string,
+  dates: string[],
+): Promise<{ reportId: string; dates: string[]; count: number }> {
+  return apiFetch(`/reports/${reportId}/dates`, {
+    method: "PUT",
+    body: JSON.stringify({ dates }),
+  });
 }
 
 // ---------------------------------------------------------------------------
