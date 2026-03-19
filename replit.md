@@ -159,6 +159,52 @@ ReportGeneratorInput
 
 ---
 
+## Experiment Report: Phase 3 — AI Content Quality
+
+**Status**: Complete as of 2026-03-19.
+
+### What changed in Phase 3
+
+**Goal**: Upgrade from "can output text" → "conservative, credible, useful content for formal experiment reports"
+
+**1. Backend evidence-level pre-assessment (before AI call)**
+- `computeEvidenceLevel()` evaluates: hasObjective (>5 chars), hasMeasurements, hasDataTypes, hasSteps, hasSystem
+- Returns: `"high"` / `"medium"` / `"low"` — passed to the AI as explicit context
+- `computeMissingHints()` generates 0-5 specific actionable hints per missing field
+- These two functions run BEFORE the AI call, so the AI is never asked to guess its own confidence level
+
+**2. Extended AI context (`ExperimentAiContext`)**
+Phase 2 sent: system names/roles (attrs[0] only), prep categories, step names (params[0] only), measurement names/targets
+Phase 3 now sends:
+- `purpose_input` (user's free-form purpose text)
+- `editor_content` (TipTap free-text notes, stripped of HTML, first 450 chars)
+- All measurement `conditions` (temp, pressure, etc.)
+- All data `attributes` (not just 单位)
+- All operation step `params` (not just params[0])
+- First 3 attributes of each system object
+
+**3. Completely rewritten system prompt**
+- Explicit prohibition list (7 specific behaviors: no fabricated numbers, no fake trends, no treating goals as results, etc.)
+- 3-tier writing guidance (high/medium/low), each tier specifies exactly what summary/analysis/conclusion should and should not contain
+- Requires AI to output `evidenceLevel` and `missingInfoHints` in the JSON response
+
+**4. Expanded AI output schema**
+`AiReportBlocks` now includes:
+- `summary`, `analysis`, `conclusion` (required)
+- `evidenceLevel?: "high" | "medium" | "low"` (optional — AI's self-assessment)
+- `missingInfoHints?: string[]` (optional — AI's specific suggestions for missing data)
+
+**5. Tier-aware renderer**
+- Medium evidence: prepends `【注】当前信息充分度有限，以下分析为初步判断…` before analysis and conclusion
+- Low evidence: prepends `【注】当前实验记录尚不完整，以下仅为记录性总结…`
+- High evidence: no prefix note needed
+- Missing info hints rendered as italic list after conclusion
+
+**6. Tier-aware fallback text**
+When AI is unavailable, `buildFallbackBlocks(evidenceLevel, missingHints)` returns tier-specific conservative text instead of generic placeholders.
+
+---
+
 ## Experiment Report: Phase 2.1 — Reliability Fixes
 
 **Status**: Complete as of 2026-03-19. Upgrades "可演示" → "可日常使用".
