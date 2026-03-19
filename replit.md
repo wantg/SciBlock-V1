@@ -159,9 +159,40 @@ ReportGeneratorInput
 
 ---
 
+## Experiment Report: Phase 2.1 — Reliability Fixes
+
+**Status**: Complete as of 2026-03-19. Upgrades "可演示" → "可日常使用".
+
+### What changed in Phase 2.1 (reliability fixes, no new features)
+
+**Fix 1 — Synchronous "保存修改"**
+- `useExperimentReport.ts`: Removed debounced `updateReport`. New `commitReport(html): Promise<void>` directly awaits `PUT /report` before returning.
+- `ReportSection.tsx`: `handleSave()` is now `async`, awaits `commitReport()`, shows "保存中…" spinner and disables buttons. Failure keeps edit mode open with a visible error banner. "保存修改" is now semantically equivalent to "backend has successfully persisted the change".
+
+**Fix 2 — Atomic regenerate (no race condition)**
+- New backend endpoint: `POST /api/experiments/:id/report/regenerate` — atomically overwrites the existing report in a single DB UPDATE. No preceding DELETE is needed.
+- `useExperimentReport.ts`: New `triggerRegenerate()` — clears local state immediately (spinner), then sends exactly ONE request to `/regenerate`. Replaces the old `clearReport() + triggerReportGeneration()` two-request pattern that had a DELETE/POST race condition.
+- `ReportSection.tsx`: `handleRegenerate()` calls `triggerRegenerate()` instead of the old two-call pattern.
+
+**Fix 3 — `source` field semantics (ai_modified)**
+- `saveReportHtml` now uses a SQL CASE expression:
+  - `'ai'` or `'stub'` → `'ai_modified'` (user edited an AI-generated draft)
+  - `'ai_modified'` → `'ai_modified'` (stays — already marked modified)
+  - `'manual'` / NULL → `'manual'`
+- Source state machine is now: `null → ai/stub → ai_modified → ai` (on next regenerate)
+
+**Fix 4 — `report_model_json` semantics documented**
+- Explicit code comments in `generateAndSaveReport` and `saveReportHtml` clarify:
+  - `report_model_json` is an AUDIT SNAPSHOT of the last AI generation run.
+  - It is NOT updated on manual edits. After a manual edit, `report_html` is the truth source.
+  - Never use `report_model_json` for re-rendering in production code.
+
+---
+
 ## Experiment Report: Phase 2 — Real AI Backend + DB Persistence
 
 **Status**: Complete as of 2026-03-19. End-to-end verified (source="ai", HTML persisted to DB).
+Superseded by Phase 2.1 reliability fixes (see above).
 
 ### What changed
 
@@ -193,8 +224,9 @@ Four new nullable columns on `experiment_records`:
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/experiments/:id/report/generate` | AI generation pipeline (requires auth, ownership check) |
-| `PUT` | `/api/experiments/:id/report` | Save manually edited HTML (`source = "manual"`) |
+| `POST` | `/api/experiments/:id/report/generate` | First-time AI generation pipeline (requires auth, ownership check) |
+| `POST` | `/api/experiments/:id/report/regenerate` | Atomic overwrite+regenerate — no race condition (Phase 2.1) |
+| `PUT` | `/api/experiments/:id/report` | Save manually edited HTML (source: `ai`→`ai_modified`, else `manual`) |
 | `DELETE` | `/api/experiments/:id/report` | Clear all report fields (reset to idle) |
 
 ### New Express service
@@ -222,7 +254,7 @@ Four new nullable columns on `experiment_records`:
 | `types/experiment.ts` | Added `reportSource?`, `reportGeneratedAt?`, `reportUpdatedAt?` to ExperimentRecord |
 | `api/experiments.ts` | Wire type updated; `generateReport(id)`, `saveReport(id, html)`, `clearExperimentReport(id)` added |
 | `api/memberSciNotes.ts` | MemberExperimentApiResponse updated to include 3 new report fields |
-| `hooks/useExperimentReport.ts` | Removed `experimentType`/`objective` params; uses `generateReport(id)` for manual trigger; `updateReport` debounces `saveReport` by 2s; `clearReport` calls `clearExperimentReport` |
+| `hooks/useExperimentReport.ts` | Phase 2: manual trigger via `generateReport(id)`. Phase 2.1: removed debounced `updateReport`; added `commitReport(html)` (direct await) and `triggerRegenerate()` (single atomic call to `/regenerate`). |
 | `contexts/WorkbenchContext.tsx` | Auto-trigger in `setModuleStatus` now calls `generateReport(currentRecordId)` instead of local stub |
 
 ### AI provider notes

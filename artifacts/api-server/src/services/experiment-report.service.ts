@@ -512,7 +512,14 @@ export async function generateAndSaveReport(
   const source      = model.source;
   const modelJson   = JSON.stringify(model);
 
-  // 5. Persist to DB
+  // 5. Persist to DB.
+  //
+  // report_model_json is saved here as an AUDIT SNAPSHOT of the generation run:
+  // it reflects the rule-mapped model + AI text at the moment of generation.
+  // After a subsequent manual edit (PUT /report), report_model_json is NOT
+  // updated — report_html becomes the truth source and report_model_json
+  // serves only for debugging / auditing the AI generation output.
+  // Never use report_model_json as a re-render source in production code.
   await pool.query(
     `UPDATE experiment_records
      SET report_html         = $1,
@@ -532,8 +539,17 @@ export async function generateAndSaveReport(
 /**
  * saveReportHtml
  *
- * Save a manually edited report HTML. Sets source = 'manual'.
- * Returns the saved values.
+ * Persist a manually edited report HTML with the correct source transition:
+ *
+ *   'ai'         → 'ai_modified'   (user edited a pure-AI report)
+ *   'stub'       → 'ai_modified'   (user edited a fallback/stub report)
+ *   'ai_modified'→ 'ai_modified'   (remains modified — no double-label needed)
+ *   'manual'/NULL→ 'manual'        (user wrote from scratch or saved already-manual)
+ *
+ * report_model_json is intentionally NOT updated here. It remains as the
+ * audit snapshot of the last AI-generation run. After a manual edit the
+ * report_html is the truth source; report_model_json is a historical record
+ * of what the AI produced and must NOT be used for re-rendering or display.
  */
 export async function saveReportHtml(
   experimentId: string,
@@ -543,7 +559,11 @@ export async function saveReportHtml(
   const result = await pool.query(
     `UPDATE experiment_records
      SET report_html       = $1,
-         report_source     = 'manual',
+         report_source     = CASE
+                               WHEN report_source IN ('ai', 'stub', 'ai_modified')
+                               THEN 'ai_modified'
+                               ELSE 'manual'
+                             END,
          report_updated_at = now(),
          updated_at        = now()
      WHERE id = $2

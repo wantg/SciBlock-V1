@@ -192,7 +192,7 @@ interface GenerateReportResponse {
 }
 
 /**
- * Trigger AI-powered report generation for an experiment.
+ * Trigger AI-powered report generation for an experiment (first time).
  * The backend reads experiment + scinote data from the DB, calls the AI,
  * persists the result, and returns the rendered HTML.
  *
@@ -207,8 +207,25 @@ export async function generateReport(experimentId: string): Promise<string> {
 }
 
 /**
+ * Atomically regenerate the report for an experiment that already has one.
+ * The backend atomically overwrites the existing report_html in a single DB
+ * UPDATE — no separate DELETE is needed, eliminating the race condition that
+ * existed when the frontend called DELETE then POST concurrently.
+ *
+ * @returns The newly generated HTML string (already persisted server-side).
+ */
+export async function regenerateReport(experimentId: string): Promise<string> {
+  const resp = await apiFetch<GenerateReportResponse>(
+    `/experiments/${experimentId}/report/regenerate`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+  return resp.html;
+}
+
+/**
  * Persist a manually edited report HTML.
- * Sets report_source = 'manual' on the server.
+ * Source is determined server-side via SQL CASE:
+ *   'ai' / 'stub' → 'ai_modified'; anything else → 'manual'.
  */
 export async function saveReport(experimentId: string, html: string): Promise<void> {
   await apiFetch<{ ok: boolean }>(

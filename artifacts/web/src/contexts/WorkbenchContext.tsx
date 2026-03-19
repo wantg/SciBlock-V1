@@ -142,11 +142,20 @@ interface WorkbenchContextValue {
 
   /** Derived from isGeneratingReport + currentRecord.reportHtml */
   reportStatus: ReportStatus;
-  /** Manually trigger report generation (e.g. after partial confirm or retry). */
+  /** First-time AI generation (idle/error state → calls POST /report/generate). */
   triggerReportGeneration: () => void;
-  /** Persist user-edited report HTML back to the record. */
-  updateReport: (html: string) => void;
-  /** Clear the generated report (reset to idle). */
+  /**
+   * Atomic replace of an existing report (ready state → calls POST /report/regenerate).
+   * No separate DELETE is sent; the backend overwrites atomically.
+   */
+  triggerRegenerate: () => void;
+  /**
+   * Await-able save for the "保存修改" button.
+   * Immediately patches local state then awaits PUT /report.
+   * Throws on error so the caller can show failure feedback.
+   */
+  commitReport: (html: string) => Promise<void>;
+  /** Clear the generated report (reset to idle → calls DELETE /report). */
   clearReport: () => void;
 }
 
@@ -758,7 +767,8 @@ export function WorkbenchProvider({
   const {
     reportStatus,
     triggerReportGeneration,
-    updateReport,
+    triggerRegenerate,
+    commitReport,
     clearReport,
   } = useExperimentReport({
     currentRecord,
@@ -841,7 +851,8 @@ export function WorkbenchProvider({
     isCurrentRecordHead,
     reportStatus,
     triggerReportGeneration,
-    updateReport,
+    triggerRegenerate,
+    commitReport,
     clearReport,
   };
 
