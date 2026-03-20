@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "gjF9-j7mpRtUcBDeLODhj"
+uri = "file://sciblock_export.sql.gz"
+type = "unspecified"
+title = "SciBlock 数据库导出 (sciblock_export.sql.gz)"
