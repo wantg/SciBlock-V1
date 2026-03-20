@@ -5,6 +5,7 @@ services:
       dockerfile: docker/backend/Dockerfile
     environment:
       DATABASE_URL: ${DATABASE_URL}
+      EXTERNAL_DATABASE_URL: ${EXTERNAL_DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
       ADMIN_SECRET: ${ADMIN_SECRET}
       CORS_ORIGINS: ${CORS_ORIGINS:-}

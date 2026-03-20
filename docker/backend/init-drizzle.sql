@@ -107,3 +107,16 @@ BEGIN
       FOREIGN KEY (report_id) REFERENCES weekly_reports(id) ON DELETE CASCADE;
   END IF;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Add columns introduced by Drizzle migrations (idempotent via IF NOT EXISTS)
+-- These are required by the Drizzle ORM schema and seed scripts.
+-- ---------------------------------------------------------------------------
+ALTER TABLE weekly_reports
+  ADD COLUMN IF NOT EXISTS generation_status text NOT NULL DEFAULT 'idle',
+  ADD COLUMN IF NOT EXISTS ai_content_json text,
+  ADD COLUMN IF NOT EXISTS date_range_start text,
+  ADD COLUMN IF NOT EXISTS date_range_end text,
+  ADD COLUMN IF NOT EXISTS experiment_count integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS links_last_saved_at timestamptz,
+  ADD COLUMN IF NOT EXISTS dates_last_saved_at timestamptz;

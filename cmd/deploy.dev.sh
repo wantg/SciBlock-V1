@@ -1,1 +1,1 @@
-docker compose --env-file docker/.env.dev -f docker-compose.yml up -d
+docker compose --env-file docker/.env.dev -f docker-compose.yml up -d --build

@@ -40,6 +40,9 @@ require_env JWT_SECRET
 require_env ADMIN_SECRET
 
 export DATABASE_URL="$(rewrite_localhost_db_url "${DATABASE_URL}")"
+if [ -n "${EXTERNAL_DATABASE_URL:-}" ]; then
+  export EXTERNAL_DATABASE_URL="$(rewrite_localhost_db_url "${EXTERNAL_DATABASE_URL}")"
+fi
 
 BACKEND_PORT="${BACKEND_PORT:-8080}"
 GO_PORT="${GO_PORT:-8082}"
