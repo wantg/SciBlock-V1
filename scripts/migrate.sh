@@ -49,15 +49,26 @@ log_ok()    { echo -e "${GREEN}[migrate]${NC} $*"; }
 log_error() { echo -e "${RED}[migrate]${NC} $*" >&2; }
 
 # ---------------------------------------------------------------------------
-# Check DATABASE_URL
+# Resolve DB URL — EXTERNAL_DATABASE_URL takes priority over DATABASE_URL
 # ---------------------------------------------------------------------------
-if [ -z "${DATABASE_URL:-}" ]; then
-  log_error "DATABASE_URL is not set. Export it before running this script."
-  log_error "Example: export DATABASE_URL=postgresql://user:pass@localhost:5432/sciblock"
+DB_URL="${EXTERNAL_DATABASE_URL:-${DATABASE_URL:-}}"
+
+if [ -z "$DB_URL" ]; then
+  log_error "Neither EXTERNAL_DATABASE_URL nor DATABASE_URL is set."
+  log_error "Example: export EXTERNAL_DATABASE_URL=postgresql://user:pass@host:5432/db"
   exit 1
 fi
 
-log "DATABASE_URL is set."
+# Log the active connection (host + database only — no password).
+_CONN_SAFE=$(node -e "
+try {
+  const u = new URL(process.env.EXTERNAL_DATABASE_URL || process.env.DATABASE_URL || '');
+  process.stdout.write(u.hostname + ':' + (u.port || '5432') + u.pathname);
+} catch { process.stdout.write('(unparseable)'); }
+" 2>/dev/null || echo "(unknown)")
+
+log "DB source : ${EXTERNAL_DATABASE_URL:+EXTERNAL_DATABASE_URL}${EXTERNAL_DATABASE_URL:-DATABASE_URL}"
+log "DB conn   : ${_CONN_SAFE}"
 
 # ---------------------------------------------------------------------------
 # Pre-migration data cleanup
@@ -72,7 +83,7 @@ run_cleanup() {
   local cleanup_sql="${ROOT_DIR}/scripts/sql/pre-fk-cleanup.sql"
   if [ -f "${cleanup_sql}" ]; then
     log "Running pre-migration data cleanup..."
-    psql "${DATABASE_URL}" -f "${cleanup_sql}" -q
+    psql "${DB_URL}" -f "${cleanup_sql}" -q
     log_ok "Pre-migration data cleanup complete."
   fi
 }
@@ -121,7 +132,7 @@ run_goose() {
   fi
 
   log "Running goose ${subcommand} (Go backend tables)..."
-  "$goose_cmd" -dir "${migrations_dir}" postgres "${DATABASE_URL}" "${subcommand}"
+  "$goose_cmd" -dir "${migrations_dir}" postgres "${DB_URL}" "${subcommand}"
   log_ok "goose ${subcommand} complete."
 }
 

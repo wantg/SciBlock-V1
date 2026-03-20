@@ -45,8 +45,11 @@ log_error() { echo -e "${RED}[baseline]${NC} $*" >&2; }
 # ---------------------------------------------------------------------------
 # Preconditions
 # ---------------------------------------------------------------------------
-if [ -z "${DATABASE_URL:-}" ]; then
-  log_error "DATABASE_URL is not set."
+# Resolve DB URL — EXTERNAL_DATABASE_URL takes priority over DATABASE_URL
+DB_URL="${EXTERNAL_DATABASE_URL:-${DATABASE_URL:-}}"
+
+if [ -z "$DB_URL" ]; then
+  log_error "Neither EXTERNAL_DATABASE_URL nor DATABASE_URL is set."
   exit 1
 fi
 
@@ -82,7 +85,7 @@ log ""
 # ---------------------------------------------------------------------------
 # Apply baseline
 # ---------------------------------------------------------------------------
-psql "$DATABASE_URL" <<SQL
+psql "$DB_URL" <<SQL
 -- Ensure the drizzle tracking schema and table exist.
 CREATE SCHEMA IF NOT EXISTS drizzle;
 

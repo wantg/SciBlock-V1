@@ -1,7 +1,25 @@
 import { defineConfig } from "drizzle-kit";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
+// ---------------------------------------------------------------------------
+// Connection string resolution
+//
+// EXTERNAL_DATABASE_URL takes priority over DATABASE_URL.
+// This mirrors the runtime resolution in lib/db/src/index.ts so that
+// `drizzle-kit generate` and `drizzle-kit migrate` always target the same
+// database instance as the running API server.
+//
+//   Set EXTERNAL_DATABASE_URL to use an external/self-managed Postgres.
+//   Unset it to fall back to the Replit-managed internal database.
+// ---------------------------------------------------------------------------
+const dbUrl =
+  process.env.EXTERNAL_DATABASE_URL ||
+  process.env.DATABASE_URL;
+
+if (!dbUrl) {
+  throw new Error(
+    "Neither EXTERNAL_DATABASE_URL nor DATABASE_URL is set. " +
+    "Provision a database or set EXTERNAL_DATABASE_URL.",
+  );
 }
 
 export default defineConfig({
@@ -17,6 +35,6 @@ export default defineConfig({
   out: "./migrations",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: dbUrl,
   },
 });

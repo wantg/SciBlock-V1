@@ -18,8 +18,11 @@
 
 set -euo pipefail
 
-if [ -z "${DATABASE_URL:-}" ]; then
-  echo "[seed] ERROR: DATABASE_URL is not set." >&2
+# Resolve DB URL — EXTERNAL_DATABASE_URL takes priority over DATABASE_URL
+DB_URL="${EXTERNAL_DATABASE_URL:-${DATABASE_URL:-}}"
+
+if [ -z "$DB_URL" ]; then
+  echo "[seed] ERROR: Neither EXTERNAL_DATABASE_URL nor DATABASE_URL is set." >&2
   exit 1
 fi
 
@@ -43,7 +46,7 @@ fi
 
 echo "[seed] Upserting user: $EMAIL..."
 
-psql "$DATABASE_URL" <<SQL
+psql "$DB_URL" <<SQL
 INSERT INTO users (id, email, password_hash, name, role)
 VALUES (
   gen_random_uuid()::text,
