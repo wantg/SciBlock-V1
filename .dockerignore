@@ -9,3 +9,41 @@ node_modules
 pnpm-debug.log*
 *.log
 attached_assets
+
+# 大型数据库导出文件
+sciblock_export.sql
+sciblock_export.sql.gz
+
+# 构建输出
+tmp
+out-tsc
+*.tsbuildinfo
+.expo
+.expo-shared
+
+# IDE/编辑器
+.idea/
+.vs/
+.cursor/
+*.sublime-workspace
+.c9/
+*.launch
+.classpath
+.project
+.settings/
+
+# Replit 相关
+.replit
+.replitignore
+.cache/
+.local/
+
+# 测试/覆盖率
+coverage
+
+# GitHub
+.github/
+
+# 其他系统文件
+Thumbs.db
+/connect.lock
