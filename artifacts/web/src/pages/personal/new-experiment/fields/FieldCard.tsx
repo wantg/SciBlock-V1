@@ -49,10 +49,10 @@ function ListItemRow({
           }}
           className="flex-1 h-7 text-sm"
         />
-        <button onClick={onConfirmEdit} className="text-green-600 hover:text-green-700 p-0.5 rounded" title="保存">
+        <button onClick={onConfirmEdit} className="text-green-600 hover:text-green-700 p-0.5 rounded cursor-pointer" title="保存">
           <Check size={14} />
         </button>
-        <button onClick={onCancelEdit} className="text-gray-400 hover:text-gray-600 p-0.5 rounded" title="取消">
+        <button onClick={onCancelEdit} className="text-gray-400 hover:text-gray-600 p-0.5 rounded cursor-pointer" title="取消">
           <X size={14} />
         </button>
       </div>
@@ -180,12 +180,12 @@ export function FieldCard({ field, onChange, onDelete }: Props) {
                   placeholder="输入新一项内容…"
                   className="flex-1 h-7 text-sm"
                 />
-                <button onClick={confirmAdd} className="text-green-600 hover:text-green-700 p-0.5" title="确认">
+                <button onClick={confirmAdd} className="text-green-600 hover:text-green-700 p-0.5 cursor-pointer" title="确认">
                   <Check size={14} />
                 </button>
                 <button
                   onClick={() => { setAddingText(""); setShowAddInput(false); }}
-                  className="text-gray-400 hover:text-gray-600 p-0.5"
+                  className="text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
                   title="取消"
                 >
                   <X size={14} />

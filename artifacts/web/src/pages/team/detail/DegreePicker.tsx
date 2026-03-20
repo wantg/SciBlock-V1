@@ -54,7 +54,7 @@ export function DegreePicker({ value, onSave, onCancel }: DegreePickerProps) {
           确认
         </button>
         <span className="text-gray-300 text-[10px]">·</span>
-        <button onClick={onCancel} className="text-[10px] text-gray-400 hover:underline">
+        <button onClick={onCancel} className="text-[10px] text-gray-400 hover:underline cursor-pointer">
           取消
         </button>
       </div>

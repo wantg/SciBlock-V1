@@ -120,7 +120,7 @@ export default function MembersPage() {
         ) : error ? (
           <div className="text-center py-16">
             <p className="text-gray-500 mb-4">{error}</p>
-            <button onClick={load} className="text-sm text-gray-700 underline">重新加载</button>
+            <button onClick={load} className="text-sm text-gray-700 underline cursor-pointer">重新加载</button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
