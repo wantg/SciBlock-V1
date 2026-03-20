@@ -72,14 +72,14 @@ export function TagBadge({ tag, onUpdate, onDelete }: Props) {
         />
         <button
           onClick={confirm}
-          className="text-green-600 hover:text-green-700 flex-shrink-0"
+          className="text-green-600 hover:text-green-700 flex-shrink-0 cursor-pointer"
           title="确认"
         >
           <Check size={10} />
         </button>
         <button
           onClick={cancel}
-          className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+          className="text-gray-400 hover:text-gray-600 flex-shrink-0 cursor-pointer"
           title="取消"
         >
           <X size={10} />
@@ -94,7 +94,7 @@ export function TagBadge({ tag, onUpdate, onDelete }: Props) {
     <span className="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-150 rounded-full px-2.5 py-0.5 group transition-colors">
       <button
         onClick={startEdit}
-        className="text-xs text-slate-600 hover:text-slate-800 leading-none"
+        className="text-xs text-slate-600 hover:text-slate-800 leading-none cursor-pointer"
         title="编辑标签"
       >
         {label}
@@ -104,7 +104,7 @@ export function TagBadge({ tag, onUpdate, onDelete }: Props) {
           e.stopPropagation();
           onDelete();
         }}
-        className="text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity leading-none"
+        className="text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity leading-none cursor-pointer"
         title="删除标签"
       >
         <X size={10} />

@@ -36,13 +36,13 @@ export function QueryBox({ onSubmit }: Props) {
         <div className="flex items-center gap-2">
           <button
             aria-label="Attach file"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
           >
             <Paperclip size={15} />
           </button>
           <button
             aria-label="Attach image"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
           >
             <ImageIcon size={15} />
           </button>
@@ -53,7 +53,7 @@ export function QueryBox({ onSubmit }: Props) {
           className={[
             "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
             value.trim()
-              ? "bg-gray-900 text-white hover:bg-gray-800"
+              ? "bg-gray-900 text-white hover:bg-gray-800 cursor-pointer"
               : "bg-gray-100 text-gray-400 cursor-not-allowed",
           ].join(" ")}
         >

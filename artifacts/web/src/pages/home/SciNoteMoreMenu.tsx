@@ -64,7 +64,7 @@ export function SciNoteMoreMenu({ noteId, onRename, onReinitialize, onDelete }: 
         onClick={handleTriggerClick}
         title="更多操作"
         className={[
-          "flex-shrink-0 p-1 mr-1 rounded transition-all duration-100",
+          "flex-shrink-0 p-1 mr-1 rounded transition-all duration-100 cursor-pointer",
           // Show faintly by default; clearly on row hover; always visible when menu is open.
           open
             ? "opacity-100 text-gray-600 bg-gray-100"
@@ -90,7 +90,7 @@ export function SciNoteMoreMenu({ noteId, onRename, onReinitialize, onDelete }: 
                   setOpen(false);
                 }}
                 className={[
-                  "w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left",
+                  "w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left cursor-pointer",
                   danger
                     ? "text-red-500 hover:bg-red-50"
                     : "text-gray-700 hover:bg-gray-50",

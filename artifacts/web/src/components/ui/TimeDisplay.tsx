@@ -50,7 +50,7 @@ export function TimeDisplay({ mode = "date-time", className = "" }: Props) {
     <button
       onClick={toggleHour12}
       title={hour12 ? "当前: 12小时制，点击切换为24小时制" : "当前: 24小时制，点击切换为12小时制"}
-      className="tabular-nums tracking-wide hover:text-gray-800 transition-colors focus:outline-none"
+      className="tabular-nums tracking-wide hover:text-gray-800 transition-colors focus:outline-none cursor-pointer"
     >
       {timeStr}
     </button>
