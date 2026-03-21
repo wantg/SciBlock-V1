@@ -54,7 +54,7 @@ export function AuthCard() {
           disabled={form.loading}
         />
 
-        <div className="flex items-center justify-between mt-1">
+        <div className="flex items-center mt-1">
           <CheckboxField
             id="remember-me"
             label="记住我"
@@ -62,12 +62,6 @@ export function AuthCard() {
             onChange={form.setRememberMe}
             disabled={form.loading}
           />
-          <a
-            href="#"
-            className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
-          >
-            忘记密码？
-          </a>
         </div>
 
         {form.serverError && (
