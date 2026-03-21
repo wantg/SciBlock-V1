@@ -31,15 +31,15 @@ export function RequestAccessPage() {
         </div>
 
         <h1 className="text-xl font-semibold text-gray-900 tracking-tight mb-2">
-          Access by Invitation
+          需邀请访问
         </h1>
         <p className="text-sm text-gray-500 leading-relaxed">
-          SciBlock is currently in closed beta. Accounts are created by our team — public registration is not available at this time.
+          SciBlock 目前处于内测阶段，账号由管理员统一创建，暂不支持公开注册。
         </p>
 
         <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
           <p className="text-xs text-gray-500 leading-relaxed">
-            If you were given access or would like to request a trial, please reach out to your administrator.
+            如果您已获得访问权限，或希望申请试用，请联系您的管理员。
           </p>
         </div>
 
@@ -47,7 +47,7 @@ export function RequestAccessPage() {
           onClick={() => navigate("/login")}
           className="mt-7 text-sm text-gray-500 hover:text-gray-800 transition-colors"
         >
-          ← Back to sign in
+          ← 返回登录
         </button>
       </div>
     </div>

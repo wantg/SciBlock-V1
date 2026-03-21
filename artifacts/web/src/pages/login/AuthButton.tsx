@@ -29,7 +29,7 @@ export function AuthButton({
           : "bg-gray-900 text-white hover:bg-gray-800 active:bg-gray-950 cursor-pointer",
       ].join(" ")}
     >
-      {loading ? "Signing in..." : children}
+      {loading ? "登录中..." : children}
     </button>
   );
 }

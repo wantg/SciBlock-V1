@@ -12,15 +12,15 @@ export function AuthCard() {
     <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl px-8 py-10 shadow-sm">
       <div className="mb-7">
         <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
-          Let's Sign You In
+          登录到 SciBlock
         </h1>
         <p className="mt-2 text-sm text-gray-500">
-          Don't have an account?{" "}
+          还没有账号？{" "}
           <Link
             href="/signup"
             className="text-gray-900 font-medium underline underline-offset-2"
           >
-            Sign up
+            立即注册
           </Link>
         </p>
       </div>
@@ -34,18 +34,18 @@ export function AuthCard() {
       >
         <InputField
           id="email"
-          label="Email"
+          label="邮箱"
           type="email"
           value={form.email}
           onChange={form.setEmail}
-          placeholder="you@example.com"
+          placeholder="your@email.com"
           error={form.emailError}
           disabled={form.loading}
         />
 
         <InputField
           id="password"
-          label="Password"
+          label="密码"
           type="password"
           value={form.password}
           onChange={form.setPassword}
@@ -57,7 +57,7 @@ export function AuthCard() {
         <div className="flex items-center justify-between mt-1">
           <CheckboxField
             id="remember-me"
-            label="Remember Me"
+            label="记住我"
             checked={form.rememberMe}
             onChange={form.setRememberMe}
             disabled={form.loading}
@@ -66,7 +66,7 @@ export function AuthCard() {
             href="#"
             className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
           >
-            Forgot Password?
+            忘记密码？
           </a>
         </div>
 
@@ -77,7 +77,7 @@ export function AuthCard() {
         )}
 
         <AuthButton type="submit" disabled={!form.canSubmit} loading={form.loading}>
-          Login
+          登录
         </AuthButton>
       </form>
     </div>
